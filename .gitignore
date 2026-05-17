@@ -1,0 +1,13 @@
+﻿•	bin/
+obj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.ide.*
+*.log
+packages/
+.DS_Store
+*.db
+Properties/launchSettings.json
+
