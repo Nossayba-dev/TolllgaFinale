@@ -1,27 +1,32 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
+using TolllgaFinale.Services;
 
-namespace TolllgaFinale
+namespace TolllgaFinale;
+
+public static class MauiProgram
 {
-    public static class MauiProgram
+    public static MauiApp CreateMauiApp()
     {
-        public static MauiApp CreateMauiApp()
-        {
-            var builder = MauiApp.CreateBuilder();
-            builder
-                .UseMauiApp<App>()
-                .ConfigureFonts(fonts =>
-                {
-                    fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
-                });
+        var builder = MauiApp.CreateBuilder();
 
-            builder.Services.AddMauiBlazorWebView();
+        builder
+            .UseMauiApp<App>()
+            .ConfigureFonts(fonts =>
+            {
+                fonts.AddFont("OpenSans-Regular.ttf",    "OpenSansRegular");
+                fonts.AddFont("OpenSans-Semibold.ttf",   "OpenSansSemibold");
+            });
+
+        builder.Services.AddMauiBlazorWebView();
+
+        // ── Register the JSON sharing service ──────────────────────────────
+        builder.Services.AddSingleton<JsonSharingService>();
 
 #if DEBUG
-    		builder.Services.AddBlazorWebViewDeveloperTools();
-    		builder.Logging.AddDebug();
+        builder.Services.AddBlazorWebViewDeveloperTools();
+        builder.Logging.AddDebug();
 #endif
 
-            return builder.Build();
-        }
+        return builder.Build();
     }
 }

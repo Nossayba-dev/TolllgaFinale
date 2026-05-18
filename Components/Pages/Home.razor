@@ -1,5 +1,302 @@
-﻿@page "/"
+@page "/"
+@using TolllgaFinale.Services
+@using TolllgaFinale.Models
+@inject JsonSharingService JsonService
+@implements IAsyncDisposable
 
-<h1>Hello, world!</h1>
+<div class="weight-viewer">
 
-Welcome to your new app.
+    <div class="header">
+        <span class="scale-icon">⚖️</span>
+        <h1>Weight Display</h1>
+        <span class="live-badge @(_timer is not null ? "live" : "paused")">
+            @(_timer is not null ? "● LIVE" : "⏸ PAUSED")
+        </span>
+    </div>
+
+    @* ── Android: storage permission warning ── *@
+    @if (_needsPermission)
+    {
+        <div class="card perm-card">
+            <p>⚠️ <strong>Storage permission required</strong></p>
+            <p>App 2 needs access to shared external storage to read the weight file.</p>
+            <button class="btn-perm" @onclick="RequestPermission">
+                Open Permission Settings
+            </button>
+            <small>After granting, tap Refresh below.</small>
+        </div>
+    }
+
+    <div class="controls">
+        @if (_timer is null)
+        {
+            <button class="btn-start" @onclick="StartLive">▶ Start Live</button>
+        }
+        else
+        {
+            <button class="btn-stop" @onclick="StopLive">⏹ Stop</button>
+        }
+    </div>
+
+    @if (_loading && _data is null)
+    {
+        <p class="status">Reading scale data…</p>
+    }
+    else if (_error is not null)
+    {
+        <div class="card error-card">
+            <p>❌ <strong>Error:</strong> @_error</p>
+            <small>Path: @JsonService.FilePath</small>
+        </div>
+    }
+    else if (_data is null)
+    {
+        <div class="card empty-card">
+            <p>📭 Waiting for App 1…</p>
+            <p>Expected file:</p>
+            <code>@JsonService.FilePath</code>
+        </div>
+    }
+    else
+    {
+        <div class="card weight-card @(_flash ? "flash" : "")">
+            <div class="weight-value">
+                @_data.Weight.ToString("F2")
+                <span class="unit">kg</span>
+            </div>
+            <div class="raw-label">Raw: <code>@_data.RawValue</code></div>
+            <div class="timestamp">🕒 @_data.UpdatedAt.ToLocalTime().ToString("HH:mm:ss.fff")</div>
+        </div>
+
+        <p class="refresh-info">
+            Every @_intervalMs ms · last read @_refreshedAt?.ToString("HH:mm:ss.fff")
+        </p>
+    }
+
+    <div class="interval-row">
+        <label>Refresh interval: <strong>@_intervalMs ms</strong></label>
+        <input type="range" min="100" max="2000" step="100"
+               value="@_intervalMs"
+               @onchange="OnIntervalChanged" />
+    </div>
+
+</div>
+
+@code {
+    private WeightData? _data;
+    private string?     _error;
+    private bool        _loading         = true;
+    private bool        _flash           = false;
+    private bool        _needsPermission = false;
+    private DateTime?   _refreshedAt;
+    private int         _intervalMs      = 300;
+
+    private PeriodicTimer?         _timer;
+    private Task?                  _loopTask;
+    private CancellationTokenSource _cts = new();
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
+
+    protected override async Task OnInitializedAsync()
+    {
+        CheckPermission();
+        await ReadOnce();
+        if (!_needsPermission)
+            StartLive();
+    }
+
+    // ── Permission (Android only) ─────────────────────────────────────────────
+
+    private void CheckPermission()
+    {
+#if ANDROID
+        _needsPermission = !TolllgaFinale.Platforms.AndroidHelpers.StoragePermissionHelper.HasPermission();
+#else
+        _needsPermission = false;
+#endif
+    }
+
+    private void RequestPermission()
+    {
+#if ANDROID
+        TolllgaFinale.Platforms.AndroidHelpers.StoragePermissionHelper.RequestPermission();
+#endif
+    }
+
+    // ── Live polling ──────────────────────────────────────────────────────────
+
+    private void StartLive()
+    {
+        if (_timer is not null) return;
+        _cts      = new CancellationTokenSource();
+        _timer    = new PeriodicTimer(TimeSpan.FromMilliseconds(_intervalMs));
+        _loopTask = PollLoop(_cts.Token);
+    }
+
+    private void StopLive()
+    {
+        _cts.Cancel();
+        _timer?.Dispose();
+        _timer = null;
+    }
+
+    private async Task PollLoop(CancellationToken ct)
+    {
+        try
+        {
+            while (await _timer!.WaitForNextTickAsync(ct))
+            {
+                CheckPermission();       // re-check in case user just granted it
+                await ReadOnce();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private async Task ReadOnce()
+    {
+        try
+        {
+            var prev   = _data?.Weight;
+            _data      = await JsonService.ReadWeightAsync();
+            _error     = null;
+            _refreshedAt = DateTime.Now;
+
+            if (_data is not null && _data.Weight != prev)
+            {
+                _flash = true;
+                _ = Task.Delay(250).ContinueWith(_ =>
+                {
+                    _flash = false;
+                    InvokeAsync(StateHasChanged);
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void OnIntervalChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var ms))
+        {
+            _intervalMs = ms;
+            StopLive();
+            StartLive();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        StopLive();
+        if (_loopTask is not null)
+            await _loopTask.ConfigureAwait(false);
+    }
+}
+
+<style>
+    .weight-viewer {
+        max-width: 480px;
+        margin: 2rem auto;
+        padding: 1rem;
+        font-family: 'Segoe UI', sans-serif;
+        text-align: center;
+    }
+
+    .header {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.6rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+    }
+    .header h1 { font-size: 1.5rem; color: #512BD4; margin: 0; }
+    .scale-icon { font-size: 1.8rem; }
+
+    .live-badge {
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        border-radius: 20px;
+        padding: 0.2rem 0.65rem;
+    }
+    .live-badge.live   { background: #e8f5e9; color: #2e7d32; border: 1px solid #66bb6a; }
+    .live-badge.paused { background: #f5f5f5; color: #888;    border: 1px solid #ccc; }
+
+    .controls { margin-bottom: 1.2rem; }
+
+    .btn-start, .btn-stop, .btn-perm {
+        border: none;
+        border-radius: 8px;
+        padding: 0.45rem 1.3rem;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    .btn-start { background: #512BD4; color: #fff; }
+    .btn-start:hover { background: #3d1fa0; }
+    .btn-stop  { background: #e53935; color: #fff; }
+    .btn-stop:hover  { background: #b71c1c; }
+    .btn-perm  { background: #f57c00; color: #fff; margin-top: 0.6rem; }
+    .btn-perm:hover  { background: #e65100; }
+
+    .status { color: #888; font-style: italic; }
+
+    .card {
+        border-radius: 16px;
+        padding: 2rem 1.5rem;
+        box-shadow: 0 4px 18px rgba(0,0,0,0.12);
+        margin-bottom: 1rem;
+        transition: transform 0.15s;
+    }
+
+    .weight-card {
+        background: linear-gradient(135deg, #512BD4, #7c4dff);
+        color: #fff;
+    }
+    .weight-card.flash {
+        transform: scale(1.03);
+        box-shadow: 0 0 24px rgba(124, 77, 255, 0.6);
+    }
+
+    .weight-value {
+        font-size: 4.5rem;
+        font-weight: 700;
+        letter-spacing: -2px;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+    }
+    .unit { font-size: 2rem; font-weight: 400; opacity: 0.85; }
+
+    .raw-label { margin-top: 0.8rem; font-size: 0.82rem; opacity: 0.75; }
+    .raw-label code {
+        background: rgba(255,255,255,0.15);
+        border-radius: 4px;
+        padding: 0.1rem 0.4rem;
+    }
+
+    .timestamp { margin-top: 0.5rem; font-size: 0.82rem; opacity: 0.7; font-variant-numeric: tabular-nums; }
+
+    .error-card { background: #fdecea; border: 1px solid #e57373; color: #b71c1c; }
+    .error-card small { display: block; margin-top: 0.4rem; font-size: 0.75rem; word-break: break-all; }
+
+    .empty-card { background: #fff8e1; border: 1px solid #ffcc02; color: #5d4037; }
+    .empty-card code { display: block; margin-top: 0.4rem; font-size: 0.75rem; word-break: break-all; }
+
+    .perm-card { background: #fff3e0; border: 1px solid #ffb300; color: #5d3800; }
+    .perm-card small { display: block; margin-top: 0.5rem; font-size: 0.78rem; color: #888; }
+
+    .refresh-info { margin-top: 0.8rem; font-size: 0.74rem; color: #aaa; font-variant-numeric: tabular-nums; }
+
+    .interval-row { margin-top: 1.4rem; font-size: 0.85rem; color: #555; }
+    .interval-row label { display: block; margin-bottom: 0.3rem; }
+    .interval-row input[type=range] { width: 80%; accent-color: #512BD4; }
+</style>
