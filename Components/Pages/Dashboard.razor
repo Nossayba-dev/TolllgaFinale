@@ -1,0 +1,139 @@
+@page "/"
+@layout WeightSyncFinale.Components.Layout.MainLayout
+@using TolllgaFinale.Models
+@using TolllgaFinale.Services
+@inject DatabaseService Db
+@inject NavigationManager Nav
+
+<div class="page-title">▦ Dashboard</div>
+
+@* ── KPI Cards ── *@
+<div class="kpi-row">
+    <div class="kpi-card">
+        <div class="kpi-label">Pesées Aujourd'hui</div>
+        <div class="kpi-value">@_todayCount.ToString("0000")</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Poids Net Total (kg)</div>
+        <div class="kpi-value">@_totalNet.ToString("N0")</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Camions Enregistrés</div>
+        <div class="kpi-value">@_truckCount.ToString("0000")</div>
+    </div>
+</div>
+
+@* ── Recent weights table ── *@
+<div class="card-white">
+    @if (_recent is null)
+    {
+        <p style="color:#999;text-align:center;padding:2rem">Chargement…</p>
+    }
+    else if (_recent.Count == 0)
+    {
+        <p style="color:#999;text-align:center;padding:2rem">Aucune pesée enregistrée.</p>
+    }
+    else
+    {
+        <table class="tbl">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Matricule</th>
+                    <th>Chauffeur</th>
+                    <th style="text-align:right">Poids Brut (kg)</th>
+                    <th style="text-align:right">Tare (kg)</th>
+                    <th style="text-align:right">Poids Net (kg)</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var w in _recent)
+                {
+                    <tr>
+                        <td>@w.WeighingDate.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                        <td class="bold">@w.Matricule</td>
+                        <td>@(w.DriverName ?? "—")</td>
+                        <td style="text-align:right">@w.GrossWeight.ToString("N0")</td>
+                        <td style="text-align:right">@w.Tare.ToString("N0")</td>
+                        <td style="text-align:right" class="green">@w.NetWeight.ToString("N0")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@* ── New weighing CTA ── *@
+<button class="btn-nouvelle-pesee" @onclick="@(() => Nav.NavigateTo("/pesee"))">
+    + NOUVELLE PESÉE
+</button>
+
+@code {
+    private List<WeightRecord>? _recent;
+    private int    _todayCount = 0;
+    private double _totalNet   = 0;
+    private int    _truckCount = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Db.InitAsync();
+        var all    = await Db.GetAllWeightsAsync();
+        var trucks = await Db.GetAllTrucksAsync();
+
+        var today     = DateTime.UtcNow.Date;
+        _todayCount   = all.Count(w => w.WeighingDate.Date == today);
+        _totalNet     = all.Sum(w => w.NetWeight);
+        _truckCount   = trucks.Count;
+        _recent       = all.Take(20).ToList();
+    }
+}
+
+<style>
+    .kpi-row {
+        display: flex;
+        gap: 1.2rem;
+        margin-bottom: 1.2rem;
+        flex-wrap: wrap;
+    }
+    .kpi-card {
+        flex: 1;
+        min-width: 200px;
+        background: #fff;
+        border-radius: 10px;
+        padding: 1.2rem 1.5rem 1.5rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,.07);
+    }
+    .kpi-label {
+        font-size: 0.85rem;
+        color: #666;
+        margin-bottom: 0.6rem;
+    }
+    .kpi-value {
+        display: inline-block;
+        background: #1a1a1a;
+        color: #fff;
+        font-size: 2rem;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 2px;
+        border-radius: 8px;
+        padding: 0.4rem 1rem;
+    }
+
+    .btn-nouvelle-pesee {
+        display: block;
+        width: 100%;
+        background: #2d5a27;
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        padding: 1.1rem;
+        font-size: 1rem;
+        font-weight: 800;
+        letter-spacing: .1em;
+        cursor: pointer;
+        transition: background .2s;
+        margin-top: 0.5rem;
+    }
+    .btn-nouvelle-pesee:hover { background: #1e3d1a; }
+</style>

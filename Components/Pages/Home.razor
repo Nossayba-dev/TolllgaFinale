@@ -1,156 +1,334 @@
-@page "/"
+@page "/pesee"
+@layout WeightSyncFinale.Components.Layout.MainLayout
 @using TolllgaFinale.Services
 @using TolllgaFinale.Models
-@inject JsonSharingService JsonService
+@inject JsonSharingService  JsonService
+@inject DatabaseService     Db
 @implements IAsyncDisposable
 
-<div class="weight-viewer">
+<div class="page">
 
-    <div class="header">
-        <span class="scale-icon">⚖️</span>
-        <h1>Weight Display</h1>
-        <span class="live-badge @(_timer is not null ? "live" : "paused")">
-            @(_timer is not null ? "● LIVE" : "⏸ PAUSED")
-        </span>
+    @* ══ WEIGHT BANNER ══════════════════════════════════════════════════════ *@
+    <div class="weight-banner @(_flash ? "flash" : "")">
+        <span class="weight-number">@DisplayWeight</span>
+        <span class="weight-unit">kg</span>
     </div>
 
-    @* ── Android: storage permission warning ── *@
-    @if (_needsPermission)
+    @* ══ KNOWN-TRUCK DIALOG ══════════════════════════════════════════════════ *@
+    @if (_showTareDialog)
     {
-        <div class="card perm-card">
-            <p>⚠️ <strong>Storage permission required</strong></p>
-            <p>App 2 needs access to shared external storage to read the weight file.</p>
-            <button class="btn-perm" @onclick="RequestPermission">
-                Open Permission Settings
-            </button>
-            <small>After granting, tap Refresh below.</small>
-        </div>
-    }
-
-    <div class="controls">
-        @if (_timer is null)
-        {
-            <button class="btn-start" @onclick="StartLive">▶ Start Live</button>
-        }
-        else
-        {
-            <button class="btn-stop" @onclick="StopLive">⏹ Stop</button>
-        }
-    </div>
-
-    @if (_loading && _data is null)
-    {
-        <p class="status">Reading scale data…</p>
-    }
-    else if (_error is not null)
-    {
-        <div class="card error-card">
-            <p>❌ <strong>Error:</strong> @_error</p>
-            <small>Path: @JsonService.FilePath</small>
-        </div>
-    }
-    else if (_data is null)
-    {
-        <div class="card empty-card">
-            <p>📭 Waiting for App 1…</p>
-            <p>Expected file:</p>
-            <code>@JsonService.FilePath</code>
-        </div>
-    }
-    else
-    {
-        <div class="card weight-card @(_flash ? "flash" : "")">
-            <div class="weight-value">
-                @_data.Weight.ToString("F2")
-                <span class="unit">kg</span>
+        <div class="dialog-overlay">
+            <div class="dialog">
+                <div class="dialog-title">🚛 Camion connu</div>
+                <p>
+                    Le camion <strong>@_matricule</strong> existe déjà dans la base.<br />
+                    Tare enregistrée : <strong>@_knownTruck!.Tare.ToString("0.000") kg</strong>
+                </p>
+                <p>Cette pesée est-elle la <strong>Tare</strong> ou le <strong>Poids Brut</strong> ?</p>
+                <div class="dialog-actions">
+                    <button class="btn-dialog-tare"  @onclick='@(() => ResolveDialog("tare"))'>
+                        ⚖ C'est la Tare
+                    </button>
+                    <button class="btn-dialog-brut"  @onclick='@(() => ResolveDialog("brut"))'>
+                        🏋 C'est le Poids Brut
+                    </button>
+                    <button class="btn-dialog-cancel" @onclick='@(() => ResolveDialog("cancel"))'>
+                        Annuler
+                    </button>
+                </div>
             </div>
-            <div class="raw-label">Raw: <code>@_data.RawValue</code></div>
-            <div class="timestamp">🕒 @_data.UpdatedAt.ToLocalTime().ToString("HH:mm:ss.fff")</div>
         </div>
-
-        <p class="refresh-info">
-            Every @_intervalMs ms · last read @_refreshedAt?.ToString("HH:mm:ss.fff")
-        </p>
     }
 
-    <div class="interval-row">
-        <label>Refresh interval: <strong>@_intervalMs ms</strong></label>
-        <input type="range" min="100" max="2000" step="100"
-               value="@_intervalMs"
-               @onchange="OnIntervalChanged" />
+    @* ══ TRUCK INFO ══════════════════════════════════════════════════════════ *@
+    <div class="section">
+        <div class="section-header">INFORMATIONS DU CAMION</div>
+        <div class="section-body form-row">
+            <div class="form-group">
+                <label>Matricule Camion</label>
+                <input type="text"
+                       value="@_matricule"
+                       disabled="@_isPaused"
+                       @onchange="OnMatriculeChanged" />
+            </div>
+            <div class="form-group">
+                <label>Nom Chauffeur (optionnel)</label>
+                <input type="text" @bind="_chauffeur" disabled="@_isPaused" />
+            </div>
+        </div>
     </div>
+
+    @* ══ TYPE DE PESÉE + CLOCK ═══════════════════════════════════════════════ *@
+    <div class="row-panels">
+        <div class="panel panel-left">
+            <div class="panel-title">Type de Pesée</div>
+            <label class="radio-label">
+                <input type="radio" name="pesee" value="brut"
+                       checked="@(_typePesee == "brut")"
+                       disabled="@_isPaused"
+                       @onchange="@(() => _typePesee = "brut")" />
+                Poids Brut
+            </label>
+            <label class="radio-label">
+                <input type="radio" name="pesee" value="tare"
+                       checked="@(_typePesee == "tare")"
+                       disabled="@_isPaused"
+                       @onchange="@(() => _typePesee = "tare")" />
+                Poids Tare
+            </label>
+        </div>
+
+        <div class="panel panel-right">
+            <div class="panel-title">Heure actuelle</div>
+            <div class="clock">@_clock</div>
+            <button class="btn-pause" @onclick="TogglePause">
+                @(_isPaused ? "▶ Reprendre" : "⏸ Pause / Capturer Poids")
+            </button>
+        </div>
+    </div>
+
+    @* ══ RÉSUMÉ DES POIDS ════════════════════════════════════════════════════ *@
+    <div class="resume-title">Résumé des poids</div>
+    <div class="resume-row">
+        <div class="resume-card orange">
+            <div class="resume-label">Poids Brut</div>
+            <div class="resume-value">@(_poidsBrut?.ToString("000.000") ?? "000.000")</div>
+        </div>
+        <div class="resume-card gray">
+            <div class="resume-label">Tare</div>
+            <div class="resume-value">@(_poidsTare?.ToString("000.000") ?? "000.000")</div>
+        </div>
+        <div class="resume-card green">
+            <div class="resume-label">Poids Net</div>
+            <div class="resume-value">@PoidsNet</div>
+        </div>
+    </div>
+
+    @* ══ ACTIONS ════════════════════════════════════════════════════════════ *@
+    <div class="actions-row">
+        <button class="btn-annuler"     @onclick="Annuler">Annuler</button>
+        <button class="btn-enregistrer" @onclick="EnregistrerAsync"
+                disabled="@(!CanSave)">Enregistrer</button>
+    </div>
+
+    @if (_saveSuccess)
+    {
+        <div class="success-strip">✅ Pesée enregistrée avec succès !</div>
+    }
+    @if (_error is not null)
+    {
+        <div class="error-strip">⚠ @_error</div>
+    }
 
 </div>
 
 @code {
-    private WeightData? _data;
+    // ── Scale data ────────────────────────────────────────────────────────────
+    private WeightData? _liveData;
     private string?     _error;
-    private bool        _loading         = true;
-    private bool        _flash           = false;
-    private bool        _needsPermission = false;
-    private DateTime?   _refreshedAt;
-    private int         _intervalMs      = 300;
+    private bool        _flash;
 
-    private PeriodicTimer?         _timer;
-    private Task?                  _loopTask;
+    // ── Pause / capture ───────────────────────────────────────────────────────
+    private bool    _isPaused       = false;
+    private double? _capturedWeight = null;
+
+    private string DisplayWeight =>
+        _isPaused && _capturedWeight.HasValue
+            ? _capturedWeight.Value.ToString("000.000")
+            : _liveData?.Weight.ToString("000.000") ?? "000.000";
+
+    // ── Résumé ────────────────────────────────────────────────────────────────
+    private double? _poidsBrut = null;
+    private double? _poidsTare = null;
+    private string  PoidsNet   =>
+        _poidsBrut.HasValue && _poidsTare.HasValue
+            ? (_poidsBrut.Value - _poidsTare.Value).ToString("0.000")
+            : "0.000";
+    private bool CanSave => _poidsBrut.HasValue && _poidsTare.HasValue && !string.IsNullOrWhiteSpace(_matricule);
+
+    // ── Form ──────────────────────────────────────────────────────────────────
+    private string _matricule = "";
+    private string _chauffeur = "";
+    private string _typePesee = "brut";
+
+    // ── Known-truck dialog ────────────────────────────────────────────────────
+    private bool   _showTareDialog = false;
+    private Truck? _knownTruck     = null;
+
+    // ── UI state ──────────────────────────────────────────────────────────────
+    private bool    _saveSuccess = false;
+    private string  _clock       = DateTime.Now.ToString("HH:mm:ss");
+
+    // ── Timers ────────────────────────────────────────────────────────────────
+    private PeriodicTimer?          _pollTimer;
+    private PeriodicTimer?          _clockTimer;
+    private Task?                   _pollLoop;
+    private Task?                   _clockLoop;
     private CancellationTokenSource _cts = new();
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
-
     protected override async Task OnInitializedAsync()
     {
-        CheckPermission();
+        await Db.InitAsync();
         await ReadOnce();
-        if (!_needsPermission)
-            StartLive();
+        StartTimers();
     }
 
-    // ── Permission (Android only) ─────────────────────────────────────────────
-
-    private void CheckPermission()
+    // ── Matricule input → check DB ────────────────────────────────────────────
+    private async Task OnMatriculeChanged(ChangeEventArgs e)
     {
-#if ANDROID
-        _needsPermission = !TolllgaFinale.Platforms.AndroidHelpers.StoragePermissionHelper.HasPermission();
-#else
-        _needsPermission = false;
-#endif
+        _matricule = e.Value?.ToString() ?? "";
     }
 
-    private void RequestPermission()
+    // ── Pause / Resume ────────────────────────────────────────────────────────
+    private async Task TogglePause()
     {
-#if ANDROID
-        TolllgaFinale.Platforms.AndroidHelpers.StoragePermissionHelper.RequestPermission();
-#endif
+        if (!_isPaused)
+        {
+            // ── PAUSE: capture weight ─────────────────────────────────────────
+            _isPaused       = true;
+            _capturedWeight = _liveData?.Weight ?? 0;
+            StopTimers();
+
+            // ── Check if this truck already exists in DB ───────────────────────
+            if (!string.IsNullOrWhiteSpace(_matricule))
+            {
+                _knownTruck = await Db.GetTruckByMatriculeAsync(_matricule);
+
+                if (_knownTruck is not null)
+                {
+                    // Known truck → ask the user which type this weight is
+                    _showTareDialog = true;
+                    return;   // wait for dialog answer before assigning weight
+                }
+            }
+
+            // New truck or no matricule → assign directly from radio selection
+            AssignCapturedWeight(_typePesee);
+        }
+        else
+        {
+            // ── RESUME: start timers without clearing captured values ──
+            _isPaused       = false;
+            _capturedWeight = null;
+            _showTareDialog = false;
+            StartTimers();
+        }
     }
 
-    // ── Live polling ──────────────────────────────────────────────────────────
-
-    private void StartLive()
+    // ── Dialog resolution ─────────────────────────────────────────────────────
+    private void ResolveDialog(string choice)
     {
-        if (_timer is not null) return;
-        _cts      = new CancellationTokenSource();
-        _timer    = new PeriodicTimer(TimeSpan.FromMilliseconds(_intervalMs));
-        _loopTask = PollLoop(_cts.Token);
+        _showTareDialog = false;
+
+        if (choice == "cancel")
+        {
+            // User cancelled → resume live
+            _isPaused       = false;
+            _capturedWeight = null;
+            StartTimers();
+            return;
+        }
+
+        // "tare" or "brut" chosen from dialog — override radio
+        _typePesee = choice;
+        AssignCapturedWeight(choice);
+
+        // Pre-fill the other weight from the known truck if available
+        if (choice == "brut" && _knownTruck!.Tare > 0)
+            _poidsTare = _knownTruck.Tare;   // auto-fill known tare
+        else if (choice == "tare" && _poidsBrut is null)
+            _poidsBrut = null;               // brut not yet captured
     }
 
-    private void StopLive()
+    private void AssignCapturedWeight(string type)
+    {
+        if (type == "brut")
+            _poidsBrut = _capturedWeight;
+        else
+            _poidsTare = _capturedWeight;
+    }
+
+    // ── Save ──────────────────────────────────────────────────────────────────
+    private async Task EnregistrerAsync()
+    {
+        if (!CanSave) return;
+        _error       = null;
+        _saveSuccess = false;
+
+        try
+        {
+            var record = new WeightRecord
+            {
+                Matricule   = _matricule,
+                DriverName  = string.IsNullOrWhiteSpace(_chauffeur) ? null : _chauffeur,
+                GrossWeight = _poidsBrut!.Value,
+                Tare        = _poidsTare!.Value,
+                NetWeight   = _poidsBrut.Value - _poidsTare.Value
+            };
+
+            await Db.SaveWeightRecordAsync(record);
+            _saveSuccess = true;
+
+            // Auto-hide success message after 3 s
+            _ = Task.Delay(3000).ContinueWith(_ =>
+            {
+                _saveSuccess = false;
+                InvokeAsync(StateHasChanged);
+            });
+
+            Annuler();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    // ── Reset ─────────────────────────────────────────────────────────────────
+    private void Annuler()
+    {
+        _matricule      = "";
+        _chauffeur      = "";
+        _typePesee      = "brut";
+        _poidsBrut      = null;
+        _poidsTare      = null;
+        _capturedWeight = null;
+        _knownTruck     = null;
+        _showTareDialog = false;
+        if (_isPaused)
+        {
+            _isPaused = false;
+            StartTimers();
+        }
+    }
+
+    // ── Timers ────────────────────────────────────────────────────────────────
+    private void StartTimers()
+    {
+        _cts        = new CancellationTokenSource();
+        _pollTimer  = new PeriodicTimer(TimeSpan.FromMilliseconds(300));
+        _clockTimer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+        _pollLoop   = PollLoop(_cts.Token);
+        _clockLoop  = ClockLoop(_cts.Token);
+    }
+
+    private void StopTimers()
     {
         _cts.Cancel();
-        _timer?.Dispose();
-        _timer = null;
+        _pollTimer?.Dispose();  _pollTimer  = null;
+        _clockTimer?.Dispose(); _clockTimer = null;
     }
 
     private async Task PollLoop(CancellationToken ct)
     {
-        try
-        {
-            while (await _timer!.WaitForNextTickAsync(ct))
-            {
-                CheckPermission();       // re-check in case user just granted it
-                await ReadOnce();
-                await InvokeAsync(StateHasChanged);
-            }
-        }
+        try { while (await _pollTimer!.WaitForNextTickAsync(ct)) { await ReadOnce(); await InvokeAsync(StateHasChanged); } }
+        catch (OperationCanceledException) { }
+    }
+
+    private async Task ClockLoop(CancellationToken ct)
+    {
+        try { while (await _clockTimer!.WaitForNextTickAsync(ct)) { _clock = DateTime.Now.ToString("HH:mm:ss"); await InvokeAsync(StateHasChanged); } }
         catch (OperationCanceledException) { }
     }
 
@@ -158,145 +336,113 @@
     {
         try
         {
-            var prev   = _data?.Weight;
-            _data      = await JsonService.ReadWeightAsync();
-            _error     = null;
-            _refreshedAt = DateTime.Now;
-
-            if (_data is not null && _data.Weight != prev)
+            var prev  = _liveData?.Weight;
+            _liveData = await JsonService.ReadWeightAsync();
+            _error    = null;
+            if (_liveData?.Weight != prev)
             {
                 _flash = true;
-                _ = Task.Delay(250).ContinueWith(_ =>
-                {
-                    _flash = false;
-                    InvokeAsync(StateHasChanged);
-                });
+                _ = Task.Delay(200).ContinueWith(_ => { _flash = false; InvokeAsync(StateHasChanged); });
             }
         }
-        catch (Exception ex)
-        {
-            _error = ex.Message;
-        }
-        finally
-        {
-            _loading = false;
-        }
-    }
-
-    private void OnIntervalChanged(ChangeEventArgs e)
-    {
-        if (int.TryParse(e.Value?.ToString(), out var ms))
-        {
-            _intervalMs = ms;
-            StopLive();
-            StartLive();
-        }
+        catch (Exception ex) { _error = ex.Message; }
     }
 
     public async ValueTask DisposeAsync()
     {
-        StopLive();
-        if (_loopTask is not null)
-            await _loopTask.ConfigureAwait(false);
+        StopTimers();
+        if (_pollLoop  is not null) await _pollLoop.ConfigureAwait(false);
+        if (_clockLoop is not null) await _clockLoop.ConfigureAwait(false);
     }
 }
 
 <style>
-    .weight-viewer {
-        max-width: 480px;
-        margin: 2rem auto;
+    .page {
+        max-width: 780px;
+        margin: 0 auto;
         padding: 1rem;
         font-family: 'Segoe UI', sans-serif;
+        background: #f0f0f0;
+        min-height: 100vh;
+    }
+
+    /* ── Banner ── */
+    .weight-banner {
+        background: #fff;
+        border-radius: 10px;
+        text-align: center;
+        padding: 1.2rem 1rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        transition: box-shadow .15s, transform .15s;
+    }
+    .weight-banner.flash { transform: scale(1.01); box-shadow: 0 0 18px rgba(30,100,30,.25); }
+    .weight-number { font-size: 3.8rem; font-weight: 700; color: #1b3a1b; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
+    .weight-unit   { font-size: 1.8rem; color: #1b3a1b; margin-left: .4rem; }
+
+    /* ── Dialog overlay ── */
+    .dialog-overlay {
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,.45);
+        display: flex; align-items: center; justify-content: center;
+        z-index: 1000;
+    }
+    .dialog {
+        background: #fff;
+        border-radius: 14px;
+        padding: 2rem 1.8rem;
+        max-width: 420px;
+        width: 90%;
+        box-shadow: 0 8px 32px rgba(0,0,0,.2);
         text-align: center;
     }
+    .dialog-title { font-size: 1.2rem; font-weight: 700; color: #2d5a27; margin-bottom: 1rem; }
+    .dialog p { font-size: .92rem; color: #333; margin-bottom: .6rem; }
+    .dialog-actions { display: flex; flex-direction: column; gap: .6rem; margin-top: 1.2rem; }
+    .btn-dialog-tare  { background: #888;    color: #fff; border: none; border-radius: 8px; padding: .6rem 1rem; font-size: .95rem; cursor: pointer; }
+    .btn-dialog-brut  { background: #e07b30; color: #fff; border: none; border-radius: 8px; padding: .6rem 1rem; font-size: .95rem; cursor: pointer; }
+    .btn-dialog-cancel{ background: #eee;    color: #555; border: none; border-radius: 8px; padding: .5rem 1rem; font-size: .88rem; cursor: pointer; }
 
-    .header {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.6rem;
-        margin-bottom: 1rem;
-        flex-wrap: wrap;
-    }
-    .header h1 { font-size: 1.5rem; color: #512BD4; margin: 0; }
-    .scale-icon { font-size: 1.8rem; }
+    /* ── Section ── */
+    .section { background: #fff; border-radius: 10px; margin-bottom: 1rem; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.07); }
+    .section-header { background: #2d5a27; color: #fff; font-weight: 700; font-size: .95rem; letter-spacing: .06em; padding: .7rem 1.2rem; }
+    .section-body   { padding: 1rem 1.2rem; }
+    .form-row { display: flex; gap: 1.2rem; flex-wrap: wrap; }
+    .form-group { flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: .3rem; }
+    .form-group label { font-size: .85rem; color: #333; }
+    .form-group input[type=text] { border: 1px solid #ccc; border-radius: 5px; padding: .45rem .7rem; font-size: .95rem; outline: none; }
+    .form-group input[type=text]:focus    { border-color: #2d5a27; }
+    .form-group input[type=text]:disabled { background: #f5f5f5; color: #999; cursor: not-allowed; }
 
-    .live-badge {
-        font-size: 0.72rem;
-        font-weight: 700;
-        letter-spacing: 0.05em;
-        border-radius: 20px;
-        padding: 0.2rem 0.65rem;
-    }
-    .live-badge.live   { background: #e8f5e9; color: #2e7d32; border: 1px solid #66bb6a; }
-    .live-badge.paused { background: #f5f5f5; color: #888;    border: 1px solid #ccc; }
+    /* ── Two-panel row ── */
+    .row-panels { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .panel { background: #fff; border-radius: 10px; padding: 1rem 1.2rem; box-shadow: 0 2px 8px rgba(0,0,0,.07); flex: 1; min-width: 200px; }
+    .panel-title { font-weight: 700; font-size: .9rem; color: #222; margin-bottom: .6rem; }
+    .radio-label { display: flex; align-items: center; gap: .4rem; font-size: .9rem; color: #333; margin-bottom: .3rem; cursor: pointer; }
+    .radio-label input { accent-color: #2d5a27; }
+    .panel-right { display: flex; flex-direction: column; align-items: flex-start; gap: .5rem; }
+    .clock { font-size: 1.9rem; font-weight: 700; color: #1b3a1b; font-variant-numeric: tabular-nums; }
+    .btn-pause { background: #2d5a27; color: #fff; border: none; border-radius: 8px; padding: .55rem 1.1rem; font-size: .88rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .btn-pause:hover { background: #1e3d1a; }
 
-    .controls { margin-bottom: 1.2rem; }
+    /* ── Résumé ── */
+    .resume-title { font-weight: 700; font-size: 1rem; color: #222; margin-bottom: .6rem; }
+    .resume-row   { display: flex; gap: .8rem; margin-bottom: 1.2rem; flex-wrap: wrap; }
+    .resume-card  { flex: 1; min-width: 130px; border-radius: 10px; padding: 1rem .8rem; text-align: center; color: #fff; }
+    .resume-card.orange { background: #e07b30; }
+    .resume-card.gray   { background: #888; }
+    .resume-card.green  { background: #2d5a27; }
+    .resume-label { font-size: .78rem; font-weight: 600; opacity: .9; margin-bottom: .3rem; }
+    .resume-value { font-size: 1.7rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 
-    .btn-start, .btn-stop, .btn-perm {
-        border: none;
-        border-radius: 8px;
-        padding: 0.45rem 1.3rem;
-        font-size: 0.95rem;
-        cursor: pointer;
-        transition: background 0.2s;
-    }
-    .btn-start { background: #512BD4; color: #fff; }
-    .btn-start:hover { background: #3d1fa0; }
-    .btn-stop  { background: #e53935; color: #fff; }
-    .btn-stop:hover  { background: #b71c1c; }
-    .btn-perm  { background: #f57c00; color: #fff; margin-top: 0.6rem; }
-    .btn-perm:hover  { background: #e65100; }
+    /* ── Actions ── */
+    .actions-row { display: flex; justify-content: center; gap: 1rem; margin-bottom: 1rem; }
+    .btn-annuler, .btn-enregistrer { border: none; border-radius: 8px; padding: .6rem 2rem; font-size: 1rem; font-weight: 600; cursor: pointer; min-width: 140px; }
+    .btn-annuler     { background: #888; color: #fff; }
+    .btn-enregistrer { background: #2d5a27; color: #fff; }
+    .btn-enregistrer:disabled { opacity: .4; cursor: not-allowed; }
 
-    .status { color: #888; font-style: italic; }
-
-    .card {
-        border-radius: 16px;
-        padding: 2rem 1.5rem;
-        box-shadow: 0 4px 18px rgba(0,0,0,0.12);
-        margin-bottom: 1rem;
-        transition: transform 0.15s;
-    }
-
-    .weight-card {
-        background: linear-gradient(135deg, #512BD4, #7c4dff);
-        color: #fff;
-    }
-    .weight-card.flash {
-        transform: scale(1.03);
-        box-shadow: 0 0 24px rgba(124, 77, 255, 0.6);
-    }
-
-    .weight-value {
-        font-size: 4.5rem;
-        font-weight: 700;
-        letter-spacing: -2px;
-        line-height: 1;
-        font-variant-numeric: tabular-nums;
-    }
-    .unit { font-size: 2rem; font-weight: 400; opacity: 0.85; }
-
-    .raw-label { margin-top: 0.8rem; font-size: 0.82rem; opacity: 0.75; }
-    .raw-label code {
-        background: rgba(255,255,255,0.15);
-        border-radius: 4px;
-        padding: 0.1rem 0.4rem;
-    }
-
-    .timestamp { margin-top: 0.5rem; font-size: 0.82rem; opacity: 0.7; font-variant-numeric: tabular-nums; }
-
-    .error-card { background: #fdecea; border: 1px solid #e57373; color: #b71c1c; }
-    .error-card small { display: block; margin-top: 0.4rem; font-size: 0.75rem; word-break: break-all; }
-
-    .empty-card { background: #fff8e1; border: 1px solid #ffcc02; color: #5d4037; }
-    .empty-card code { display: block; margin-top: 0.4rem; font-size: 0.75rem; word-break: break-all; }
-
-    .perm-card { background: #fff3e0; border: 1px solid #ffb300; color: #5d3800; }
-    .perm-card small { display: block; margin-top: 0.5rem; font-size: 0.78rem; color: #888; }
-
-    .refresh-info { margin-top: 0.8rem; font-size: 0.74rem; color: #aaa; font-variant-numeric: tabular-nums; }
-
-    .interval-row { margin-top: 1.4rem; font-size: 0.85rem; color: #555; }
-    .interval-row label { display: block; margin-bottom: 0.3rem; }
-    .interval-row input[type=range] { width: 80%; accent-color: #512BD4; }
+    /* ── Feedback ── */
+    .success-strip { background: #e8f5e9; border: 1px solid #66bb6a; border-radius: 6px; padding: .5rem 1rem; color: #2e7d32; font-size: .88rem; margin-top: .5rem; text-align: center; }
+    .error-strip   { background: #fdecea; border: 1px solid #e57373; border-radius: 6px; padding: .5rem 1rem; color: #b71c1c; font-size: .85rem; margin-top: .5rem; }
 </style>

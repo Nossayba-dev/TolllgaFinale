@@ -1,12 +1,187 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 
-<div class="page">
-   
+<div class="app-shell">
+    <nav class="sidebar">
+        <div class="sidebar-brand">TOLLLGA</div>
 
-    <main>
-        
-        <article class="content px-4">
-            @Body
-        </article>
+        <div class="nav-links">
+            <a href="/"           class="nav-item @(IsActive("/") ? "active" : "")">
+                <span class="nav-icon">▦</span> Dashboard
+            </a>
+            <a href="/pesee"      class="nav-item @(IsActive("/pesee") ? "active" : "")">
+                <span class="nav-icon">⚖</span> Nouvelle Pesée
+            </a>
+            <a href="/camions"    class="nav-item @(IsActive("/camions") ? "active" : "")">
+                <span class="nav-icon">🚛</span> Camions
+            </a>
+            <a href="/historique" class="nav-item @(IsActive("/historique") ? "active" : "")">
+                <span class="nav-icon">📋</span> Historique
+            </a>
+            <a href="/parametres" class="nav-item @(IsActive("/parametres") ? "active" : "")">
+                <span class="nav-icon">⚙</span> Paramètres
+            </a>
+        </div>
+
+        <div class="sidebar-footer">
+            <button class="btn-sidebar-red" @onclick="Quitter">Quitter</button>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        @Body
     </main>
 </div>
+
+@code {
+    [Inject] NavigationManager Nav { get; set; } = default!;
+
+    private bool IsActive(string href)
+    {
+        var cur = "/" + Nav.ToBaseRelativePath(Nav.Uri);
+        if (href == "/") return cur == "/";
+        return cur.StartsWith(href);
+    }
+
+    private void Quitter()
+    {
+#if WINDOWS
+        Application.Current?.CloseWindow(Application.Current.Windows[0]);
+#endif
+    }
+}
+
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    .app-shell {
+        display: flex;
+        height: 100vh;
+        font-family: 'Segoe UI', sans-serif;
+        background: #f0f2f0;
+    }
+
+    .sidebar {
+        width: 240px;
+        min-width: 240px;
+        background: #1e3d1a;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .sidebar-brand {
+        color: #fff;
+        font-size: 1.5rem;
+        font-weight: 900;
+        letter-spacing: 3px;
+        padding: 1.6rem 1.5rem 1.2rem;
+        border-bottom: 1px solid rgba(255,255,255,.12);
+    }
+
+    .nav-links {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 1rem 0;
+        gap: 0.1rem;
+    }
+
+    .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.8rem 1.5rem;
+        color: rgba(255,255,255,.72);
+        text-decoration: none;
+        font-size: 0.95rem;
+        font-weight: 500;
+        border-left: 3px solid transparent;
+        transition: background .15s, color .15s, border-color .15s;
+    }
+    .nav-item:hover  { background: rgba(255,255,255,.08); color: #fff; }
+    .nav-item.active { background: rgba(255,255,255,.13); color: #fff; border-left-color: #8bc34a; }
+    .nav-icon { font-size: 1.1rem; width: 1.4rem; text-align: center; }
+
+    .sidebar-footer {
+        padding: 1rem 1rem 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .btn-sidebar-red {
+        background: #c0392b;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 0.6rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background .2s;
+        width: 100%;
+    }
+    .btn-sidebar-red:hover { background: #96281b; }
+
+    .main-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 2rem;
+    }
+
+    /* ── Shared page helpers ── */
+    .page-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1e3d1a;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .card-white {
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,.07);
+        padding: 1.5rem;
+        margin-bottom: 1.2rem;
+    }
+
+    .tbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .tbl th {
+        text-align: left;
+        color: #555;
+        font-weight: 600;
+        padding: 0.6rem 0.8rem;
+        border-bottom: 2px solid #e8e8e8;
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+    .tbl td { padding: 0.7rem 0.8rem; border-bottom: 1px solid #f0f0f0; color: #333; }
+    .tbl tr:last-child td { border-bottom: none; }
+    .tbl tr:hover td { background: #f8fdf6; }
+    .tbl .bold { font-weight: 700; }
+    .tbl .green { color: #2d5a27; font-weight: 700; }
+
+    .badge-green { background: #e8f5e9; color: #2e7d32; border-radius: 20px; padding: .15rem .6rem; font-size: .75rem; font-weight: 600; }
+    .badge-gray  { background: #f0f0f0; color: #777;    border-radius: 20px; padding: .15rem .6rem; font-size: .75rem; font-weight: 600; }
+
+    .btn-green  { background: #2d5a27; color: #fff; border: none; border-radius: 6px; padding: .45rem .9rem; font-size: .85rem; cursor: pointer; font-weight: 600; }
+    .btn-green:hover  { background: #1e3d1a; }
+    .btn-red    { background: #c0392b; color: #fff; border: none; border-radius: 6px; padding: .45rem .9rem; font-size: .85rem; cursor: pointer; font-weight: 600; }
+    .btn-red:hover    { background: #96281b; }
+    .btn-gray   { background: #888; color: #fff; border: none; border-radius: 6px; padding: .45rem .9rem; font-size: .85rem; cursor: pointer; font-weight: 600; }
+    .btn-gray:hover   { background: #666; }
+
+    input[type=text], input[type=number], select {
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        padding: .45rem .7rem;
+        font-size: .9rem;
+        outline: none;
+        width: 100%;
+        font-family: inherit;
+    }
+    input[type=text]:focus, input[type=number]:focus, select:focus { border-color: #2d5a27; }
+</style>

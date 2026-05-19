@@ -1,0 +1,175 @@
+@page "/camions"
+@layout WeightSyncFinale.Components.Layout.MainLayout
+@using TolllgaFinale.Services
+@using TolllgaFinale.Models
+@inject DatabaseService Db
+
+<div class="page-title">🚛 Camions</div>
+
+@* ── Add / edit form ── *@
+<div class="card-white">
+    <div class="form-section-title">@(_editId is null ? "Ajouter un camion" : "Modifier le camion")</div>
+    <div class="cam-form">
+        <div class="form-group">
+            <label>Matricule *</label>
+            <input type="text" @bind="_fMatricule" placeholder="Ex: AB-123-CD"
+                   disabled="@(_editId is not null)" />
+        </div>
+        <div class="form-group">
+            <label>Nom Chauffeur</label>
+            <input type="text" @bind="_fDriver" placeholder="Optionnel" />
+        </div>
+        <div class="form-group">
+            <label>Tare (kg)</label>
+            <input type="number" @bind="_fTare" step="0.001" placeholder="0.000" />
+        </div>
+        <div class="form-group" style="display:flex;align-items:flex-end;gap:.5rem">
+            <button class="btn-green" @onclick="SaveAsync">
+                @(_editId is null ? "＋ Ajouter" : "💾 Enregistrer")
+            </button>
+            @if (_editId is not null)
+            {
+                <button class="btn-gray" @onclick="CancelEdit">Annuler</button>
+            }
+        </div>
+    </div>
+    @if (_formError is not null)
+    {
+        <div class="form-error">⚠ @_formError</div>
+    }
+</div>
+
+@* ── Trucks table ── *@
+<div class="card-white">
+    @if (_trucks is null)
+    {
+        <p style="color:#999;text-align:center;padding:2rem">Chargement…</p>
+    }
+    else if (_trucks.Count == 0)
+    {
+        <p style="color:#999;text-align:center;padding:2rem">Aucun camion enregistré.</p>
+    }
+    else
+    {
+        <table class="tbl">
+            <thead>
+                <tr>
+                    <th>Matricule</th>
+                    <th>Chauffeur</th>
+                    <th style="text-align:right">Tare (kg)</th>
+                    <th>Statut</th>
+                    <th>Créé le</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var t in _trucks)
+                {
+                    <tr>
+                        <td class="bold">@t.Matricule</td>
+                        <td>@(t.DriverName ?? "—")</td>
+                        <td style="text-align:right">@t.Tare.ToString("N3")</td>
+                        <td>
+                            @if (t.IsActive)
+                            { <span class="badge-green">Actif</span> }
+                            else
+                            { <span class="badge-gray">Inactif</span> }
+                        </td>
+                        <td>@t.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                        <td>
+                            <div style="display:flex;gap:.4rem">
+                                <button class="btn-green" @onclick="() => StartEdit(t)">✏</button>
+                                <button class="btn-red"   @onclick="() => ToggleActiveAsync(t)">
+                                    @(t.IsActive ? "⏸" : "▶")
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private List<Truck>? _trucks;
+
+    // Form fields
+    private string  _fMatricule = "";
+    private string  _fDriver    = "";
+    private double  _fTare      = 0;
+    private int?    _editId     = null;
+    private string? _formError  = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Db.InitAsync();
+        await Reload();
+    }
+
+    private async Task Reload()
+        => _trucks = await Db.GetAllTrucksAsync();
+
+    private void StartEdit(Truck t)
+    {
+        _editId     = t.Id;
+        _fMatricule = t.Matricule;
+        _fDriver    = t.DriverName ?? "";
+        _fTare      = t.Tare;
+        _formError  = null;
+    }
+
+    private void CancelEdit()
+    {
+        _editId = null; _fMatricule = ""; _fDriver = ""; _fTare = 0; _formError = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        _formError = null;
+        if (string.IsNullOrWhiteSpace(_fMatricule))
+        { _formError = "Le matricule est obligatoire."; return; }
+
+        if (_editId is null)
+        {
+            // Check duplicate
+            var existing = await Db.GetTruckByMatriculeAsync(_fMatricule);
+            if (existing is not null)
+            { _formError = "Ce matricule existe déjà."; return; }
+
+            await Db.InsertTruckAsync(new Truck
+            {
+                Matricule  = _fMatricule.ToUpper().Trim(),
+                DriverName = string.IsNullOrWhiteSpace(_fDriver) ? null : _fDriver,
+                Tare       = _fTare,
+                IsActive   = true
+            });
+        }
+        else
+        {
+            await Db.UpdateTruckAsync(_editId.Value, _fDriver, _fTare);
+        }
+
+        CancelEdit();
+        await Reload();
+    }
+
+    private async Task ToggleActiveAsync(Truck t)
+    {
+        await Db.ToggleTruckActiveAsync(t.Id, !t.IsActive);
+        await Reload();
+    }
+}
+
+<style>
+    .form-section-title {
+        font-weight: 700; font-size: .95rem; color: #1e3d1a;
+        margin-bottom: 1rem;
+    }
+    .cam-form {
+        display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;
+    }
+    .cam-form .form-group { flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: .3rem; }
+    .cam-form label { font-size: .82rem; color: #555; }
+    .form-error { color: #c0392b; font-size: .85rem; margin-top: .6rem; }
+</style>

@@ -2,7 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:local="clr-namespace:TolllgaFinale"
-             xmlns:components="clr-namespace:TolllgaFinale.Components"
+             xmlns:components="clr-namespace:WeightSyncFinale.Components"
              x:Class="TolllgaFinale.MainPage">
 
     <BlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html">
@@ -12,3 +12,4 @@
     </BlazorWebView>
 
 </ContentPage>
+
