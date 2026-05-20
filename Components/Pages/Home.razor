@@ -106,9 +106,8 @@
 
     @* ══ ACTIONS ════════════════════════════════════════════════════════════ *@
     <div class="actions-row">
-        <button class="btn-annuler"     @onclick="Annuler">Annuler</button>
-        <button class="btn-enregistrer" @onclick="EnregistrerAsync"
-                disabled="@(!CanSave)">Enregistrer</button>
+        <button class="btn-annuler" @onclick="Annuler">Annuler</button>
+        <button class="btn-enregistrer" @onclick="EnregistrerAsync">Enregistrer</button>
     </div>
 
     @if (_saveSuccess)
@@ -252,7 +251,12 @@
     // ── Save ──────────────────────────────────────────────────────────────────
     private async Task EnregistrerAsync()
     {
-        if (!CanSave) return;
+        if (!CanSave)
+        {
+            _error = "Veuillez saisir le matricule et capturer le poids brut et la tare avant d'enregistrer.";
+            return;
+        }
+
         _error       = null;
         _saveSuccess = false;
 
@@ -440,7 +444,6 @@
     .btn-annuler, .btn-enregistrer { border: none; border-radius: 8px; padding: .6rem 2rem; font-size: 1rem; font-weight: 600; cursor: pointer; min-width: 140px; }
     .btn-annuler     { background: #888; color: #fff; }
     .btn-enregistrer { background: #2d5a27; color: #fff; }
-    .btn-enregistrer:disabled { opacity: .4; cursor: not-allowed; }
 
     /* ── Feedback ── */
     .success-strip { background: #e8f5e9; border: 1px solid #66bb6a; border-radius: 6px; padding: .5rem 1rem; color: #2e7d32; font-size: .88rem; margin-top: .5rem; text-align: center; }
