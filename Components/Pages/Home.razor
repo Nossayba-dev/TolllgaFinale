@@ -15,7 +15,7 @@
             <div class="offline-title">Balance non connectée</div>
             <div class="offline-desc">
                 @(_offlineReason ?? "App 1 n'est pas en cours d'exécution.")<br />
-                <small>Chemin surveillé : <code>@JsonService.FilePath</code></small>
+                
             </div>
             <div class="offline-dot-row">
                 <span class="dot @(_dotFrame == 0 ? "dot-on" : "")"></span>
@@ -499,48 +499,44 @@
         catch (ObjectDisposedException)    { }
     }
 
-    // App 1 is considered alive if UpdatedAt is less than this many seconds old
-    private const int StaleThresholdSeconds = 5;
-
     private async Task ReadOnce()
     {
         try
         {
-            var prev  = _liveData?.Weight;
-            var data  = await JsonService.ReadWeightAsync();
+            var prev = _liveData?.Weight;
+            var data = await JsonService.ReadWeightAsync();
 
             if (data is null)
             {
-                // File doesn't exist → App 1 never started
-                _scaleConnected  = false;
-                _offlineReason   = "Fichier introuvable — App 1 n'est pas démarrée.";
+                // ── File missing: App 1 has never started ─────────────────────
+                _scaleConnected = false;
+                _offlineReason = "App 1 est déconnectée.";
+            }
+            else if (!data.IsConnected)
+            {
+                // ── App 1 explicitly says it is disconnected ──────────────────
+                var stoppedAgo  = DateTime.UtcNow - data.UpdatedAt;
+                _scaleConnected = false;
+                _offlineReason  = data.StopTime.HasValue
+                    ? $"App 1 arrêtée à {data.StopTime.Value.ToLocalTime():HH:mm:ss} (il y a {(int)stoppedAgo.TotalSeconds}s)."
+                    : "Fichier introuvable — App 1 n'est pas démarrée.";
             }
             else
             {
-                // File exists — check if App 1 is still actively writing it
-                var age = DateTime.UtcNow - data.UpdatedAt;
-                if (age.TotalSeconds > StaleThresholdSeconds)
-                {
-                    // File is stale → App 1 has stopped
-                    _scaleConnected = false;
-                    _offlineReason  = $"Dernière mise à jour il y a {(int)age.TotalSeconds}s — App 1 semble arrêtée.";
-                }
-                else
-                {
-                    _scaleConnected = true;
-                    _offlineReason  = null;
-                    _liveData       = data;
-                    _error          = null;
+                // ── IsConnected = true: App 1 is running ──────────────────────
+                _scaleConnected = true;
+                _offlineReason  = null;
+                _liveData       = data;
+                _error          = null;
 
-                    if (_liveData.Weight != prev)
+                if (_liveData.Weight != prev)
+                {
+                    _flash = true;
+                    _ = Task.Delay(200).ContinueWith(_ =>
                     {
-                        _flash = true;
-                        _ = Task.Delay(200).ContinueWith(_ =>
-                        {
-                            _flash = false;
-                            InvokeAsync(StateHasChanged);
-                        });
-                    }
+                        _flash = false;
+                        InvokeAsync(StateHasChanged);
+                    });
                 }
             }
 

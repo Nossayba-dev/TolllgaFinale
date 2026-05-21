@@ -14,8 +14,7 @@
             <label>Nom d'utilisateur</label>
             <input type="text"
                    @bind="_username"
-                   @onkeydown="OnKeyDown"
-                   placeholder="Ex: admin"
+                   @onkeydown="OnKeyDown"                   
                    class="@(_error is not null ? "input-error" : "")" />
         </div>
 
@@ -25,11 +24,8 @@
                 <input type="@(_showPw ? "text" : "password")"
                        @bind="_password"
                        @onkeydown="OnKeyDown"
-                       placeholder="••••••••"
                        class="@(_error is not null ? "input-error" : "")" />
-                <button class="pw-toggle" @onclick="() => _showPw = !_showPw" tabindex="-1">
-                    @(_showPw ? "🙈" : "👁")
-                </button>
+                
             </div>
         </div>
 
@@ -43,9 +39,6 @@
             @(_loading ? "Connexion…" : "Se connecter")
         </button>
 
-        <div class="login-hint">
-            <small>Défaut — admin : <code>admin123</code> | opérateur : <code>oper123</code></small>
-        </div>
 
     </div>
 </div>
