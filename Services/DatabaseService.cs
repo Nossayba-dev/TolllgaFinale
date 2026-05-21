@@ -25,9 +25,9 @@ public class DatabaseService
     public async Task<Truck?> GetTruckByMatriculeAsync(string matricule)
     {
         await InitAsync();
-        return await _db!.Table<Truck>()
-            .Where(t => t.Matricule.ToLower() == matricule.ToLower())
-            .FirstOrDefaultAsync();
+        var norm = matricule.Trim().ToLowerInvariant();
+        var trucks = await _db!.Table<Truck>().ToListAsync();
+        return trucks.FirstOrDefault(t => t.Matricule.ToLowerInvariant() == norm);
     }
 
     public async Task<List<Truck>> GetAllTrucksAsync()
@@ -85,10 +85,11 @@ public class DatabaseService
     public async Task<WeightRecord?> GetPendingRecordAsync(string matricule)
     {
         await InitAsync();
-        var records = await _db!.Table<WeightRecord>()
-            .Where(w => w.Matricule.ToLower() == matricule.ToLower())
+        var normM = matricule.Trim().ToLowerInvariant();
+        var records = (await _db!.Table<WeightRecord>().ToListAsync())
+            .Where(w => w.Matricule.ToLowerInvariant() == normM)
             .OrderByDescending(w => w.WeighingDate)
-            .ToListAsync();
+            .ToList();
 
         return records.FirstOrDefault(w =>
             (w.GrossWeight > 0 && w.Tare == 0) ||
@@ -157,9 +158,12 @@ public class DatabaseService
     public async Task<List<WeightRecord>> GetWeightsByMatriculeAsync(string matricule)
     {
         await InitAsync();
-        return await _db!.Table<WeightRecord>()
-            .Where(w => w.Matricule.ToLower() == matricule.ToLower())
-            .OrderByDescending(w => w.WeighingDate).ToListAsync();
+        var normW = matricule.Trim().ToLowerInvariant();
+        var all = await _db!.Table<WeightRecord>().ToListAsync();
+        return all
+            .Where(w => w.Matricule.ToLowerInvariant() == normW)
+            .OrderByDescending(w => w.WeighingDate)
+            .ToList();
     }
 
     public async Task DeleteWeightRecordAsync(int id)

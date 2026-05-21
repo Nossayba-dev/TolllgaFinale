@@ -17,7 +17,8 @@ public static class MauiProgram
 
         builder.Services.AddMauiBlazorWebView();
         builder.Services.AddSingleton<JsonSharingService>();
-        builder.Services.AddSingleton<DatabaseService>();   // ← new
+        builder.Services.AddSingleton<DatabaseService>();
+        builder.Services.AddSingleton<AuthService>();     // ← new
 
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();

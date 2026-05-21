@@ -1,0 +1,207 @@
+@page "/login"
+@layout Layout.EmptyLayout
+@using TolllgaFinale.Services
+@inject AuthService    Auth
+@inject NavigationManager Nav
+
+<div class="login-shell">
+    <div class="login-card">
+
+        <div class="login-logo">TOLLLGA</div>
+        <div class="login-subtitle">Système de gestion des pesées</div>
+
+        <div class="field-group">
+            <label>Nom d'utilisateur</label>
+            <input type="text"
+                   @bind="_username"
+                   @onkeydown="OnKeyDown"
+                   placeholder="Ex: admin"
+                   class="@(_error is not null ? "input-error" : "")" />
+        </div>
+
+        <div class="field-group">
+            <label>Mot de passe</label>
+            <div class="pw-wrap">
+                <input type="@(_showPw ? "text" : "password")"
+                       @bind="_password"
+                       @onkeydown="OnKeyDown"
+                       placeholder="••••••••"
+                       class="@(_error is not null ? "input-error" : "")" />
+                <button class="pw-toggle" @onclick="() => _showPw = !_showPw" tabindex="-1">
+                    @(_showPw ? "🙈" : "👁")
+                </button>
+            </div>
+        </div>
+
+        @if (_error is not null)
+        {
+            <div class="login-error">⚠ @_error</div>
+        }
+
+        <button class="btn-login @(_loading ? "loading" : "")"
+                @onclick="DoLoginAsync" disabled="@_loading">
+            @(_loading ? "Connexion…" : "Se connecter")
+        </button>
+
+        <div class="login-hint">
+            <small>Défaut — admin : <code>admin123</code> | opérateur : <code>oper123</code></small>
+        </div>
+
+    </div>
+</div>
+
+@code {
+    private string  _username = "";
+    private string  _password = "";
+    private string? _error;
+    private bool    _loading  = false;
+    private bool    _showPw   = false;
+
+    protected override void OnInitialized()
+    {
+        // Already logged in → redirect
+        if (Auth.IsLoggedIn)
+            Nav.NavigateTo(Auth.IsAdmin ? "/" : "/pesee");
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await DoLoginAsync();
+    }
+
+    private async Task DoLoginAsync()
+    {
+        _loading = true;
+        _error   = null;
+        StateHasChanged();
+
+        var (ok, err) = await Auth.LoginAsync(_username, _password);
+
+        if (ok)
+            Nav.NavigateTo(Auth.IsAdmin ? "/" : "/pesee");
+        else
+        {
+            _error   = err;
+            _loading = false;
+        }
+    }
+}
+
+<style>
+    .login-shell {
+        min-height: 100vh;
+        background: #1e3d1a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: 'Segoe UI', sans-serif;
+    }
+
+    .login-card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 2.5rem 2rem;
+        width: 100%;
+        max-width: 380px;
+        box-shadow: 0 16px 48px rgba(0,0,0,.35);
+    }
+
+    .login-logo {
+        font-size: 2rem;
+        font-weight: 900;
+        letter-spacing: 4px;
+        color: #1e3d1a;
+        text-align: center;
+        margin-bottom: .3rem;
+    }
+
+    .login-subtitle {
+        font-size: .82rem;
+        color: #888;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .field-group {
+        display: flex;
+        flex-direction: column;
+        gap: .3rem;
+        margin-bottom: 1rem;
+    }
+    .field-group label {
+        font-size: .82rem;
+        font-weight: 600;
+        color: #444;
+    }
+    .field-group input {
+        border: 1.5px solid #ddd;
+        border-radius: 8px;
+        padding: .6rem .8rem;
+        font-size: .95rem;
+        outline: none;
+        transition: border .2s;
+        width: 100%;
+        box-sizing: border-box;
+        font-family: inherit;
+    }
+    .field-group input:focus { border-color: #2d5a27; }
+    .field-group input.input-error { border-color: #e53935; }
+
+    .pw-wrap {
+        position: relative;
+    }
+    .pw-wrap input { padding-right: 2.5rem; }
+    .pw-toggle {
+        position: absolute;
+        right: .5rem;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 1rem;
+        padding: 0;
+        line-height: 1;
+    }
+
+    .login-error {
+        background: #fdecea;
+        border: 1px solid #ef9a9a;
+        border-radius: 6px;
+        padding: .5rem .8rem;
+        font-size: .85rem;
+        color: #c62828;
+        margin-bottom: .8rem;
+    }
+
+    .btn-login {
+        width: 100%;
+        background: #2d5a27;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: .75rem;
+        font-size: 1rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background .2s, opacity .2s;
+        margin-top: .3rem;
+        letter-spacing: .03em;
+    }
+    .btn-login:hover:not(:disabled) { background: #1e3d1a; }
+    .btn-login:disabled              { opacity: .6; cursor: not-allowed; }
+    .btn-login.loading               { opacity: .7; }
+
+    .login-hint {
+        text-align: center;
+        margin-top: 1.2rem;
+        color: #aaa;
+    }
+    .login-hint code {
+        background: #f5f5f5;
+        border-radius: 4px;
+        padding: .1rem .35rem;
+        font-size: .8rem;
+        color: #555;
+    }
+</style>

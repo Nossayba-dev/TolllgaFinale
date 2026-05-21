@@ -1,0 +1,234 @@
+@page "/utilisateurs"
+@using TolllgaFinale.Services
+@using TolllgaFinale.Models
+@inject AuthService Auth
+@inject NavigationManager Nav
+
+@if (!Auth.IsAdmin)
+{
+    <div class="access-denied">🔒 Accès refusé — Administrateur uniquement.</div>
+    return;
+}
+
+<div class="page-title">👤 Gestion des Utilisateurs</div>
+
+@* ── Add user form ── *@
+<div class="card-white">
+    <div class="form-section-title">Ajouter un utilisateur</div>
+    <div class="user-form">
+        <div class="form-group">
+            <label>Nom d'utilisateur *</label>
+            <input type="text" @bind="_fUsername" placeholder="Ex: john" />
+        </div>
+        <div class="form-group">
+            <label>Mot de passe *</label>
+            <input type="password" @bind="_fPassword" placeholder="Min 4 caractères" />
+        </div>
+        <div class="form-group">
+            <label>Rôle *</label>
+            <select @bind="_fRole">
+                <option value="operateur">Opérateur</option>
+                <option value="admin">Administrateur</option>
+            </select>
+        </div>
+        <div class="form-group btn-col">
+            <button class="btn-green" @onclick="AddUserAsync">＋ Ajouter</button>
+        </div>
+    </div>
+    @if (_formError is not null)
+    { <div class="form-error">⚠ @_formError</div> }
+    @if (_formSuccess is not null)
+    { <div class="form-success">✅ @_formSuccess</div> }
+</div>
+
+@* ── Users table ── *@
+<div class="card-white">
+    @if (_users is null)
+    {
+        <p style="color:#999;text-align:center;padding:2rem">Chargement…</p>
+    }
+    else
+    {
+        <table class="tbl">
+            <thead>
+                <tr>
+                    <th>Utilisateur</th>
+                    <th>Rôle</th>
+                    <th>Statut</th>
+                    <th>Créé le</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var u in _users)
+                {
+                    <tr>
+                        <td class="bold">@u.Username</td>
+                        <td>
+                            @if (u.Role == "admin")
+                            { <span class="badge-admin">Admin</span> }
+                            else
+                            { <span class="badge-oper">Opérateur</span> }
+                        </td>
+                        <td>
+                            @if (u.IsActive)
+                            { <span class="badge-green">Actif</span> }
+                            else
+                            { <span class="badge-gray">Inactif</span> }
+                        </td>
+                        <td>@u.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                        <td>
+                            <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+                                @* Can't deactivate yourself *@
+                                @if (u.Id != Auth.CurrentUser!.Id)
+                                {
+                                    <button class="btn-gray btn-sm"
+                                            @onclick="() => ToggleAsync(u)">
+                                        @(u.IsActive ? "⏸ Désactiver" : "▶ Activer")
+                                    </button>
+                                }
+                                <button class="btn-green btn-sm"
+                                        @onclick="() => StartChangePw(u)">
+                                    🔑 MDP
+                                </button>
+                                @if (u.Id != Auth.CurrentUser!.Id)
+                                {
+                                    <button class="btn-red btn-sm"
+                                            @onclick="() => _deleteTarget = u">
+                                        🗑
+                                    </button>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@* ── Change password dialog ── *@
+@if (_pwTarget is not null)
+{
+    <div class="dialog-overlay">
+        <div class="dialog">
+            <div class="dialog-title">🔑 Changer le mot de passe</div>
+            <p>Utilisateur : <strong>@_pwTarget.Username</strong></p>
+            <input type="password" @bind="_newPw" placeholder="Nouveau mot de passe"
+                   style="margin:.6rem 0;width:100%;padding:.5rem .7rem;border:1px solid #ccc;border-radius:6px;font-size:.9rem" />
+            @if (_pwError is not null)
+            { <div class="form-error" style="margin-bottom:.5rem">@_pwError</div> }
+            <div class="dialog-actions">
+                <button class="btn-green" @onclick="DoChangePwAsync">Enregistrer</button>
+                <button class="btn-gray"  @onclick="@(() => { _pwTarget = null; _newPw = ""; _pwError = null; })">Annuler</button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Delete confirm ── *@
+@if (_deleteTarget is not null)
+{
+    <div class="dialog-overlay">
+        <div class="dialog">
+            <div class="dialog-title" style="color:#c0392b">Supprimer l'utilisateur ?</div>
+            <p>Supprimer <strong>@_deleteTarget.Username</strong> ? Cette action est irréversible.</p>
+            <div class="dialog-actions">
+                <button class="btn-red"  @onclick="DoDeleteAsync">Supprimer</button>
+                <button class="btn-gray" @onclick="() => _deleteTarget = null">Annuler</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<AppUser>? _users;
+
+    // Add form
+    private string  _fUsername  = "";
+    private string  _fPassword  = "";
+    private string  _fRole      = "operateur";
+    private string? _formError;
+    private string? _formSuccess;
+
+    // Change PW dialog
+    private AppUser? _pwTarget;
+    private string   _newPw   = "";
+    private string?  _pwError;
+
+    // Delete dialog
+    private AppUser? _deleteTarget;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Auth.IsAdmin) { Nav.NavigateTo("/pesee"); return; }
+        await Auth.InitAsync();
+        await Reload();
+    }
+
+    private async Task Reload()
+        => _users = await Auth.GetAllUsersAsync();
+
+    private async Task AddUserAsync()
+    {
+        _formError = null; _formSuccess = null;
+        var (ok, err) = await Auth.CreateUserAsync(_fUsername, _fPassword, _fRole);
+        if (!ok) { _formError = err; return; }
+        _formSuccess = $"Utilisateur « {_fUsername} » créé.";
+        _fUsername = ""; _fPassword = ""; _fRole = "operateur";
+        await Reload();
+    }
+
+    private async Task ToggleAsync(AppUser u)
+    {
+        await Auth.ToggleUserActiveAsync(u.Id, !u.IsActive);
+        await Reload();
+    }
+
+    private void StartChangePw(AppUser u) { _pwTarget = u; _newPw = ""; _pwError = null; }
+
+    private async Task DoChangePwAsync()
+    {
+        var (ok, err) = await Auth.ChangePasswordAsync(_pwTarget!.Id, _newPw);
+        if (!ok) { _pwError = err; return; }
+        _pwTarget = null; _newPw = "";
+        await Reload();
+    }
+
+    private async Task DoDeleteAsync()
+    {
+        await Auth.DeleteUserAsync(_deleteTarget!.Id);
+        _deleteTarget = null;
+        await Reload();
+    }
+}
+
+<style>
+    .access-denied {
+        text-align: center; padding: 3rem; font-size: 1.2rem; color: #c0392b;
+    }
+    .form-section-title { font-weight: 700; font-size: .95rem; color: #1e3d1a; margin-bottom: 1rem; }
+    .user-form { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; }
+    .user-form .form-group { flex: 1; min-width: 150px; display: flex; flex-direction: column; gap: .3rem; }
+    .user-form label { font-size: .82rem; color: #555; }
+    .btn-col { justify-content: flex-end; }
+    .form-error   { color: #c0392b; font-size: .85rem; margin-top: .5rem; }
+    .form-success { color: #2e7d32; font-size: .85rem; margin-top: .5rem; }
+
+    .badge-admin { background: #fce4ec; color: #c62828; border-radius: 20px; padding: .15rem .65rem; font-size: .75rem; font-weight: 700; }
+    .badge-oper  { background: #e3f2fd; color: #1565c0; border-radius: 20px; padding: .15rem .65rem; font-size: .75rem; font-weight: 700; }
+
+    .btn-sm { padding: .28rem .6rem; font-size: .78rem; }
+
+    .dialog-overlay {
+        position: fixed; inset: 0; background: rgba(0,0,0,.45);
+        display: flex; align-items: center; justify-content: center; z-index: 1000;
+    }
+    .dialog {
+        background: #fff; border-radius: 12px; padding: 2rem 1.8rem;
+        max-width: 380px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,.2); text-align: center;
+    }
+    .dialog-title { font-size: 1.1rem; font-weight: 700; color: #2d5a27; margin-bottom: .8rem; }
+    .dialog p { font-size: .9rem; color: #333; margin-bottom: .5rem; }
+    .dialog-actions { display: flex; gap: .6rem; justify-content: center; margin-top: 1rem; }
+</style>
