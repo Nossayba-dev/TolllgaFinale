@@ -1,41 +1,64 @@
 @page "/pesee"
-@layout WeightSyncFinale.Components.Layout.MainLayout
 @using TolllgaFinale.Services
 @using TolllgaFinale.Models
-@inject JsonSharingService  JsonService
-@inject DatabaseService     Db
+@inject JsonSharingService JsonService
+@inject DatabaseService    Db
 @implements IAsyncDisposable
 
 <div class="page">
 
-    @* ══ WEIGHT BANNER ══════════════════════════════════════════════════════ *@
+    @* ══ LIVE WEIGHT BANNER ══════════════════════════════════════════════════ *@
     <div class="weight-banner @(_flash ? "flash" : "")">
         <span class="weight-number">@DisplayWeight</span>
         <span class="weight-unit">kg</span>
     </div>
 
-    @* ══ KNOWN-TRUCK DIALOG ══════════════════════════════════════════════════ *@
-    @if (_showTareDialog)
+    @* ══ DIALOG: known truck with partial data ════════════════════════════════ *@
+    @if (_dialog != DialogKind.None)
     {
         <div class="dialog-overlay">
             <div class="dialog">
-                <div class="dialog-title">🚛 Camion connu</div>
-                <p>
-                    Le camion <strong>@_matricule</strong> existe déjà dans la base.<br />
-                    Tare enregistrée : <strong>@_knownTruck!.Tare.ToString("0.000") kg</strong>
-                </p>
-                <p>Cette pesée est-elle la <strong>Tare</strong> ou le <strong>Poids Brut</strong> ?</p>
-                <div class="dialog-actions">
-                    <button class="btn-dialog-tare"  @onclick='@(() => ResolveDialog("tare"))'>
-                        ⚖ C'est la Tare
-                    </button>
-                    <button class="btn-dialog-brut"  @onclick='@(() => ResolveDialog("brut"))'>
-                        🏋 C'est le Poids Brut
-                    </button>
-                    <button class="btn-dialog-cancel" @onclick='@(() => ResolveDialog("cancel"))'>
-                        Annuler
-                    </button>
-                </div>
+
+                @if (_dialog == DialogKind.AskWeightType)
+                {
+                    <div class="dialog-title">🚛 Camion connu</div>
+                    <p>Le camion <strong>@_matricule</strong> est déjà enregistré.</p>
+                    @if (_knownTruck!.Tare > 0)
+                    {
+                        <p>Tare connue : <strong>@_knownTruck.Tare.ToString("0.000") kg</strong></p>
+                    }
+                    <p>Cette pesée est-elle :</p>
+                    <div class="dialog-actions">
+                        <button class="btn-d-orange" @onclick='() => ResolveTypeDialog("brut")'>🏋 Poids Brut</button>
+                        <button class="btn-d-gray"   @onclick='() => ResolveTypeDialog("tare")'>⚖ Tare</button>
+                        <button class="btn-d-cancel" @onclick='() => ResolveTypeDialog("cancel")'>Annuler</button>
+                    </div>
+                }
+
+                @if (_dialog == DialogKind.CompleteOtherWeight)
+                {
+                    <div class="dialog-title">⚖ Pesée incomplète trouvée</div>
+                    <p>
+                        Le camion <strong>@_matricule</strong> a déjà une pesée en cours :<br />
+                        @if (_pendingRecord!.GrossWeight > 0 && _pendingRecord.Tare == 0)
+                        {
+                            <span>Poids Brut : <strong>@_pendingRecord.GrossWeight.ToString("0.000") kg</strong></span>
+                            <br /><span>La <strong>Tare</strong> n'est pas encore enregistrée.</span>
+                        }
+                        else
+                        {
+                            <span>Tare : <strong>@_pendingRecord.Tare.ToString("0.000") kg</strong></span>
+                            <br /><span>Le <strong>Poids Brut</strong> n'est pas encore enregistré.</span>
+                        }
+                    </p>
+                    <p>Voulez-vous compléter cette pesée avec le poids capturé (<strong>@_capturedWeight?.ToString("0.000") kg</strong>) ?</p>
+                    <div class="dialog-actions">
+                        <button class="btn-d-green"  @onclick="CompleteExistingRecord">✅ Oui, compléter</button>
+                        <button class="btn-d-orange" @onclick="StartNewRecord">➕ Non, nouvelle pesée</button>
+                        <button class="btn-d-cancel" @onclick='() => ResolveTypeDialog("cancel")'>Annuler</button>
+                    </div>
+                }
+
             </div>
         </div>
     }
@@ -58,7 +81,7 @@
         </div>
     </div>
 
-    @* ══ TYPE DE PESÉE + CLOCK ═══════════════════════════════════════════════ *@
+    @* ══ TYPE + CLOCK ════════════════════════════════════════════════════════ *@
     <div class="row-panels">
         <div class="panel panel-left">
             <div class="panel-title">Type de Pesée</div>
@@ -81,13 +104,13 @@
         <div class="panel panel-right">
             <div class="panel-title">Heure actuelle</div>
             <div class="clock">@_clock</div>
-            <button class="btn-pause" @onclick="TogglePause">
+            <button class="btn-pause" @onclick="TogglePauseAsync">
                 @(_isPaused ? "▶ Reprendre" : "⏸ Pause / Capturer Poids")
             </button>
         </div>
     </div>
 
-    @* ══ RÉSUMÉ DES POIDS ════════════════════════════════════════════════════ *@
+    @* ══ RÉSUMÉ ══════════════════════════════════════════════════════════════ *@
     <div class="resume-title">Résumé des poids</div>
     <div class="resume-row">
         <div class="resume-card orange">
@@ -106,9 +129,21 @@
 
     @* ══ ACTIONS ════════════════════════════════════════════════════════════ *@
     <div class="actions-row">
-        <button class="btn-annuler" @onclick="Annuler">Annuler</button>
-        <button class="btn-enregistrer" @onclick="EnregistrerAsync">Enregistrer</button>
+        <button class="btn-annuler"     @onclick="Annuler">Annuler</button>
+        <button class="btn-enregistrer" @onclick="EnregistrerAsync"
+                disabled="@(!CanSave)">
+            Enregistrer
+        </button>
     </div>
+
+    @* ── hint when only one weight captured ── *@
+    @if (_isPaused && (_poidsBrut.HasValue ^ _poidsTare.HasValue))
+    {
+        <div class="hint-strip">
+            💡 @(_poidsBrut.HasValue ? "Poids Brut capturé. Reprenez pour capturer la Tare." : "Tare capturée. Reprenez pour capturer le Poids Brut.")
+            — Vous pouvez aussi <button class="btn-link" @onclick="EnregistrerAsync">enregistrer maintenant (partiel)</button>.
+        </div>
+    }
 
     @if (_saveSuccess)
     {
@@ -122,7 +157,7 @@
 </div>
 
 @code {
-    // ── Scale data ────────────────────────────────────────────────────────────
+    // ── Scale ─────────────────────────────────────────────────────────────────
     private WeightData? _liveData;
     private string?     _error;
     private bool        _flash;
@@ -139,24 +174,30 @@
     // ── Résumé ────────────────────────────────────────────────────────────────
     private double? _poidsBrut = null;
     private double? _poidsTare = null;
-    private string  PoidsNet   =>
+
+    // Allow save when at least one weight is captured AND truck is paused (not live)
+    private bool CanSave =>
+        _isPaused && (_poidsBrut.HasValue || _poidsTare.HasValue);
+
+    private string PoidsNet =>
         _poidsBrut.HasValue && _poidsTare.HasValue
             ? (_poidsBrut.Value - _poidsTare.Value).ToString("0.000")
             : "0.000";
-    private bool CanSave => _poidsBrut.HasValue && _poidsTare.HasValue && !string.IsNullOrWhiteSpace(_matricule);
 
     // ── Form ──────────────────────────────────────────────────────────────────
     private string _matricule = "";
     private string _chauffeur = "";
     private string _typePesee = "brut";
 
-    // ── Known-truck dialog ────────────────────────────────────────────────────
-    private bool   _showTareDialog = false;
-    private Truck? _knownTruck     = null;
+    // ── Dialog state ──────────────────────────────────────────────────────────
+    private enum DialogKind { None, AskWeightType, CompleteOtherWeight }
+    private DialogKind    _dialog        = DialogKind.None;
+    private Truck?        _knownTruck    = null;
+    private WeightRecord? _pendingRecord = null;   // incomplete record in DB
 
-    // ── UI state ──────────────────────────────────────────────────────────────
-    private bool    _saveSuccess = false;
-    private string  _clock       = DateTime.Now.ToString("HH:mm:ss");
+    // ── UI ────────────────────────────────────────────────────────────────────
+    private bool   _saveSuccess = false;
+    private string _clock       = DateTime.Now.ToString("HH:mm:ss");
 
     // ── Timers ────────────────────────────────────────────────────────────────
     private PeriodicTimer?          _pollTimer;
@@ -173,115 +214,185 @@
         StartTimers();
     }
 
-    // ── Matricule input → check DB ────────────────────────────────────────────
-    private async Task OnMatriculeChanged(ChangeEventArgs e)
+    private Task OnMatriculeChanged(ChangeEventArgs e)
     {
-        _matricule = e.Value?.ToString() ?? "";
+        _matricule = e.Value?.ToString()?.ToUpper().Trim() ?? "";
+        return Task.CompletedTask;
     }
 
-    // ── Pause / Resume ────────────────────────────────────────────────────────
-    private async Task TogglePause()
+    // ══════════════════════════════════════════════════════════════════════════
+    // PAUSE / RESUME  — main entry point
+    // ══════════════════════════════════════════════════════════════════════════
+    private async Task TogglePauseAsync()
     {
         if (!_isPaused)
         {
-            // ── PAUSE: capture weight ─────────────────────────────────────────
+            // ── PAUSE: freeze weight ──────────────────────────────────────────
             _isPaused       = true;
             _capturedWeight = _liveData?.Weight ?? 0;
             StopTimers();
 
-            // ── Check if this truck already exists in DB ───────────────────────
-            if (!string.IsNullOrWhiteSpace(_matricule))
+            if (string.IsNullOrWhiteSpace(_matricule))
             {
-                _knownTruck = await Db.GetTruckByMatriculeAsync(_matricule);
-
-                if (_knownTruck is not null)
-                {
-                    // Known truck → ask the user which type this weight is
-                    _showTareDialog = true;
-                    return;   // wait for dialog answer before assigning weight
-                }
+                // No matricule → just assign from radio
+                AssignWeight(_typePesee);
+                return;
             }
 
-            // New truck or no matricule → assign directly from radio selection
-            AssignCapturedWeight(_typePesee);
+            _knownTruck = await Db.GetTruckByMatriculeAsync(_matricule);
+
+            if (_knownTruck is not null)
+            {
+                // Check for an incomplete pending record (has brut but no tare, or vice-versa)
+                _pendingRecord = await Db.GetPendingRecordAsync(_matricule);
+
+                if (_pendingRecord is not null)
+                {
+                    // There's an incomplete weighing → ask to complete it
+                    _dialog = DialogKind.CompleteOtherWeight;
+                    return;
+                }
+
+                // Known truck but no pending record → ask which weight type
+                _dialog = DialogKind.AskWeightType;
+                return;
+            }
+
+            // Brand-new truck → assign from radio directly
+            AssignWeight(_typePesee);
         }
         else
         {
-            // ── RESUME: start timers without clearing captured values ──
-            _isPaused       = false;
-            _capturedWeight = null;
-            _showTareDialog = false;
-            StartTimers();
+            // ── RESUME: clear résumé and restart live ─────────────────────────
+            ResumeFromPause();
         }
     }
 
-    // ── Dialog resolution ─────────────────────────────────────────────────────
-    private void ResolveDialog(string choice)
+    // ── Dialog: user picks Brut or Tare (known truck, no pending record) ──────
+    private void ResolveTypeDialog(string choice)
     {
-        _showTareDialog = false;
+        _dialog = DialogKind.None;
 
         if (choice == "cancel")
         {
-            // User cancelled → resume live
-            _isPaused       = false;
-            _capturedWeight = null;
-            StartTimers();
+            ResumeFromPause();
             return;
         }
 
-        // "tare" or "brut" chosen from dialog — override radio
         _typePesee = choice;
-        AssignCapturedWeight(choice);
+        AssignWeight(choice);
 
-        // Pre-fill the other weight from the known truck if available
+        // Auto-fill the OTHER weight from truck data if available
         if (choice == "brut" && _knownTruck!.Tare > 0)
-            _poidsTare = _knownTruck.Tare;   // auto-fill known tare
-        else if (choice == "tare" && _poidsBrut is null)
-            _poidsBrut = null;               // brut not yet captured
+            _poidsTare = _knownTruck.Tare;
     }
 
-    private void AssignCapturedWeight(string type)
+    // ── Dialog: complete an existing partial record ───────────────────────────
+    private void CompleteExistingRecord()
     {
-        if (type == "brut")
-            _poidsBrut = _capturedWeight;
-        else
+        _dialog = DialogKind.None;
+
+        if (_pendingRecord is null) return;
+
+        // Figure out which weight is missing and fill in the captured value
+        if (_pendingRecord.GrossWeight > 0 && _pendingRecord.Tare == 0)
+        {
+            // Missing tare
+            _poidsBrut = _pendingRecord.GrossWeight;
             _poidsTare = _capturedWeight;
+            _typePesee = "tare";
+        }
+        else
+        {
+            // Missing brut
+            _poidsTare = _pendingRecord.Tare;
+            _poidsBrut = _capturedWeight;
+            _typePesee = "brut";
+        }
     }
 
-    // ── Save ──────────────────────────────────────────────────────────────────
+    private void StartNewRecord()
+    {
+        _dialog        = DialogKind.None;
+        _pendingRecord = null;
+        AssignWeight(_typePesee);
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    private void AssignWeight(string type)
+    {
+        if (type == "brut") _poidsBrut = _capturedWeight;
+        else                _poidsTare = _capturedWeight;
+    }
+
+    private void ResumeFromPause()
+    {
+        _isPaused       = false;
+        _capturedWeight = null;
+        _poidsBrut      = null;
+        _poidsTare      = null;
+        _knownTruck     = null;
+        _pendingRecord  = null;
+        _dialog         = DialogKind.None;
+        StartTimers();
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // SAVE
+    // ══════════════════════════════════════════════════════════════════════════
     private async Task EnregistrerAsync()
     {
-        if (!CanSave)
-        {
-            _error = "Veuillez saisir le matricule et capturer le poids brut et la tare avant d'enregistrer.";
-            return;
-        }
-
+        if (!CanSave) return;
         _error       = null;
         _saveSuccess = false;
 
         try
         {
-            var record = new WeightRecord
+            if (_pendingRecord is not null && _poidsBrut.HasValue && _poidsTare.HasValue)
             {
-                Matricule   = _matricule,
-                DriverName  = string.IsNullOrWhiteSpace(_chauffeur) ? null : _chauffeur,
-                GrossWeight = _poidsBrut!.Value,
-                Tare        = _poidsTare!.Value,
-                NetWeight   = _poidsBrut.Value - _poidsTare.Value
-            };
+                // Complete an existing partial record
+                await Db.CompleteWeightRecordAsync(
+                    _pendingRecord.Id,
+                    _poidsBrut.Value,
+                    _poidsTare.Value,
+                    string.IsNullOrWhiteSpace(_chauffeur) ? null : _chauffeur);
+            }
+            else
+            {
+                // Save a new record (can be partial: only brut, or only tare)
+                var record = new WeightRecord
+                {
+                    Matricule   = _matricule,
+                    DriverName  = string.IsNullOrWhiteSpace(_chauffeur) ? null : _chauffeur,
+                    GrossWeight = _poidsBrut ?? 0,
+                    Tare        = _poidsTare ?? 0,
+                    NetWeight   = (_poidsBrut ?? 0) - (_poidsTare ?? 0)
+                };
+                await Db.SaveWeightRecordAsync(record);
+            }
 
-            await Db.SaveWeightRecordAsync(record);
             _saveSuccess = true;
 
-            // Auto-hide success message after 3 s
             _ = Task.Delay(3000).ContinueWith(_ =>
             {
                 _saveSuccess = false;
                 InvokeAsync(StateHasChanged);
             });
 
-            Annuler();
+            // Reset form but keep timers running (already resumed)
+            _isPaused       = false;
+            _capturedWeight = null;
+            _poidsBrut      = null;
+            _poidsTare      = null;
+            _knownTruck     = null;
+            _pendingRecord  = null;
+            _dialog         = DialogKind.None;
+            _matricule      = "";
+            _chauffeur      = "";
+            _typePesee      = "brut";
+
+            // Restart timers since we were paused
+            StartTimers();
         }
         catch (Exception ex)
         {
@@ -289,7 +400,6 @@
         }
     }
 
-    // ── Reset ─────────────────────────────────────────────────────────────────
     private void Annuler()
     {
         _matricule      = "";
@@ -299,7 +409,11 @@
         _poidsTare      = null;
         _capturedWeight = null;
         _knownTruck     = null;
-        _showTareDialog = false;
+        _pendingRecord  = null;
+        _dialog         = DialogKind.None;
+        _saveSuccess    = false;
+        _error          = null;
+
         if (_isPaused)
         {
             _isPaused = false;
@@ -310,6 +424,7 @@
     // ── Timers ────────────────────────────────────────────────────────────────
     private void StartTimers()
     {
+        if (_pollTimer is not null) return;   // already running
         _cts        = new CancellationTokenSource();
         _pollTimer  = new PeriodicTimer(TimeSpan.FromMilliseconds(300));
         _clockTimer = new PeriodicTimer(TimeSpan.FromSeconds(1));
@@ -326,14 +441,34 @@
 
     private async Task PollLoop(CancellationToken ct)
     {
-        try { while (await _pollTimer!.WaitForNextTickAsync(ct)) { await ReadOnce(); await InvokeAsync(StateHasChanged); } }
+        var timer = _pollTimer;
+        if (timer is null) return;
+        try
+        {
+            while (!ct.IsCancellationRequested && await timer.WaitForNextTickAsync(ct))
+            {
+                await ReadOnce();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
         catch (OperationCanceledException) { }
+        catch (ObjectDisposedException)    { }
     }
 
     private async Task ClockLoop(CancellationToken ct)
     {
-        try { while (await _clockTimer!.WaitForNextTickAsync(ct)) { _clock = DateTime.Now.ToString("HH:mm:ss"); await InvokeAsync(StateHasChanged); } }
+        var timer = _clockTimer;
+        if (timer is null) return;
+        try
+        {
+            while (!ct.IsCancellationRequested && await timer.WaitForNextTickAsync(ct))
+            {
+                _clock = DateTime.Now.ToString("HH:mm:ss");
+                await InvokeAsync(StateHasChanged);
+            }
+        }
         catch (OperationCanceledException) { }
+        catch (ObjectDisposedException)    { }
     }
 
     private async Task ReadOnce()
@@ -346,7 +481,11 @@
             if (_liveData?.Weight != prev)
             {
                 _flash = true;
-                _ = Task.Delay(200).ContinueWith(_ => { _flash = false; InvokeAsync(StateHasChanged); });
+                _ = Task.Delay(200).ContinueWith(_ =>
+                {
+                    _flash = false;
+                    InvokeAsync(StateHasChanged);
+                });
             }
         }
         catch (Exception ex) { _error = ex.Message; }
@@ -355,70 +494,62 @@
     public async ValueTask DisposeAsync()
     {
         StopTimers();
-        if (_pollLoop  is not null) await _pollLoop.ConfigureAwait(false);
-        if (_clockLoop is not null) await _clockLoop.ConfigureAwait(false);
+        try
+        {
+            if (_pollLoop  is not null) await _pollLoop.ConfigureAwait(false);
+            if (_clockLoop is not null) await _clockLoop.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { }
+        catch (ObjectDisposedException)    { }
     }
 }
 
 <style>
     .page {
-        max-width: 780px;
-        margin: 0 auto;
-        padding: 1rem;
-        font-family: 'Segoe UI', sans-serif;
-        background: #f0f0f0;
-        min-height: 100vh;
+        max-width: 780px; margin: 0 auto; padding: 1rem;
+        font-family: 'Segoe UI', sans-serif; background: #f0f0f0; min-height: 100vh;
     }
 
-    /* ── Banner ── */
+    /* Banner */
     .weight-banner {
-        background: #fff;
-        border-radius: 10px;
-        text-align: center;
-        padding: 1.2rem 1rem;
-        margin-bottom: 1rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        background: #fff; border-radius: 10px; text-align: center;
+        padding: 1.2rem 1rem; margin-bottom: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,.08);
         transition: box-shadow .15s, transform .15s;
     }
-    .weight-banner.flash { transform: scale(1.01); box-shadow: 0 0 18px rgba(30,100,30,.25); }
+    .weight-banner.flash { transform: scale(1.01); box-shadow: 0 0 18px rgba(30,100,30,.3); }
     .weight-number { font-size: 3.8rem; font-weight: 700; color: #1b3a1b; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
     .weight-unit   { font-size: 1.8rem; color: #1b3a1b; margin-left: .4rem; }
 
-    /* ── Dialog overlay ── */
+    /* Dialog */
     .dialog-overlay {
-        position: fixed; inset: 0;
-        background: rgba(0,0,0,.45);
-        display: flex; align-items: center; justify-content: center;
-        z-index: 1000;
+        position: fixed; inset: 0; background: rgba(0,0,0,.5);
+        display: flex; align-items: center; justify-content: center; z-index: 999;
     }
     .dialog {
-        background: #fff;
-        border-radius: 14px;
-        padding: 2rem 1.8rem;
-        max-width: 420px;
-        width: 90%;
-        box-shadow: 0 8px 32px rgba(0,0,0,.2);
-        text-align: center;
+        background: #fff; border-radius: 14px; padding: 2rem 1.8rem;
+        max-width: 440px; width: 92%; box-shadow: 0 8px 32px rgba(0,0,0,.22); text-align: center;
     }
-    .dialog-title { font-size: 1.2rem; font-weight: 700; color: #2d5a27; margin-bottom: 1rem; }
-    .dialog p { font-size: .92rem; color: #333; margin-bottom: .6rem; }
-    .dialog-actions { display: flex; flex-direction: column; gap: .6rem; margin-top: 1.2rem; }
-    .btn-dialog-tare  { background: #888;    color: #fff; border: none; border-radius: 8px; padding: .6rem 1rem; font-size: .95rem; cursor: pointer; }
-    .btn-dialog-brut  { background: #e07b30; color: #fff; border: none; border-radius: 8px; padding: .6rem 1rem; font-size: .95rem; cursor: pointer; }
-    .btn-dialog-cancel{ background: #eee;    color: #555; border: none; border-radius: 8px; padding: .5rem 1rem; font-size: .88rem; cursor: pointer; }
+    .dialog-title { font-size: 1.15rem; font-weight: 700; color: #2d5a27; margin-bottom: .8rem; }
+    .dialog p { font-size: .9rem; color: #333; margin-bottom: .5rem; line-height: 1.5; }
+    .dialog-actions { display: flex; flex-direction: column; gap: .55rem; margin-top: 1.1rem; }
+    .btn-d-green  { background: #2d5a27; color: #fff; border: none; border-radius: 8px; padding: .65rem 1rem; font-size: .93rem; cursor: pointer; font-weight: 600; }
+    .btn-d-orange { background: #e07b30; color: #fff; border: none; border-radius: 8px; padding: .65rem 1rem; font-size: .93rem; cursor: pointer; font-weight: 600; }
+    .btn-d-gray   { background: #777;    color: #fff; border: none; border-radius: 8px; padding: .65rem 1rem; font-size: .93rem; cursor: pointer; font-weight: 600; }
+    .btn-d-cancel { background: #f0f0f0; color: #555; border: none; border-radius: 8px; padding: .5rem 1rem; font-size: .85rem; cursor: pointer; }
 
-    /* ── Section ── */
+    /* Section */
     .section { background: #fff; border-radius: 10px; margin-bottom: 1rem; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.07); }
     .section-header { background: #2d5a27; color: #fff; font-weight: 700; font-size: .95rem; letter-spacing: .06em; padding: .7rem 1.2rem; }
-    .section-body   { padding: 1rem 1.2rem; }
+    .section-body { padding: 1rem 1.2rem; }
     .form-row { display: flex; gap: 1.2rem; flex-wrap: wrap; }
     .form-group { flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: .3rem; }
     .form-group label { font-size: .85rem; color: #333; }
-    .form-group input[type=text] { border: 1px solid #ccc; border-radius: 5px; padding: .45rem .7rem; font-size: .95rem; outline: none; }
+    .form-group input[type=text] { border: 1px solid #ccc; border-radius: 5px; padding: .45rem .7rem; font-size: .95rem; outline: none; width: 100%; }
     .form-group input[type=text]:focus    { border-color: #2d5a27; }
     .form-group input[type=text]:disabled { background: #f5f5f5; color: #999; cursor: not-allowed; }
 
-    /* ── Two-panel row ── */
+    /* Panels */
     .row-panels { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
     .panel { background: #fff; border-radius: 10px; padding: 1rem 1.2rem; box-shadow: 0 2px 8px rgba(0,0,0,.07); flex: 1; min-width: 200px; }
     .panel-title { font-weight: 700; font-size: .9rem; color: #222; margin-bottom: .6rem; }
@@ -429,7 +560,7 @@
     .btn-pause { background: #2d5a27; color: #fff; border: none; border-radius: 8px; padding: .55rem 1.1rem; font-size: .88rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
     .btn-pause:hover { background: #1e3d1a; }
 
-    /* ── Résumé ── */
+    /* Résumé */
     .resume-title { font-weight: 700; font-size: 1rem; color: #222; margin-bottom: .6rem; }
     .resume-row   { display: flex; gap: .8rem; margin-bottom: 1.2rem; flex-wrap: wrap; }
     .resume-card  { flex: 1; min-width: 130px; border-radius: 10px; padding: 1rem .8rem; text-align: center; color: #fff; }
@@ -439,13 +570,28 @@
     .resume-label { font-size: .78rem; font-weight: 600; opacity: .9; margin-bottom: .3rem; }
     .resume-value { font-size: 1.7rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 
-    /* ── Actions ── */
-    .actions-row { display: flex; justify-content: center; gap: 1rem; margin-bottom: 1rem; }
-    .btn-annuler, .btn-enregistrer { border: none; border-radius: 8px; padding: .6rem 2rem; font-size: 1rem; font-weight: 600; cursor: pointer; min-width: 140px; }
+    /* Actions */
+    .actions-row { display: flex; justify-content: center; gap: 1rem; margin-bottom: .8rem; }
+    .btn-annuler, .btn-enregistrer {
+        border: none; border-radius: 8px; padding: .65rem 2rem;
+        font-size: 1rem; font-weight: 600; cursor: pointer; min-width: 140px;
+    }
     .btn-annuler     { background: #888; color: #fff; }
-    .btn-enregistrer { background: #2d5a27; color: #fff; }
+    .btn-enregistrer { background: #2d5a27; color: #fff; transition: background .2s; }
+    .btn-enregistrer:hover    { background: #1e3d1a; }
+    .btn-enregistrer:disabled { opacity: .35; cursor: not-allowed; }
 
-    /* ── Feedback ── */
-    .success-strip { background: #e8f5e9; border: 1px solid #66bb6a; border-radius: 6px; padding: .5rem 1rem; color: #2e7d32; font-size: .88rem; margin-top: .5rem; text-align: center; }
+    /* Hint */
+    .hint-strip {
+        background: #fff8e1; border: 1px solid #ffe082; border-radius: 6px;
+        padding: .5rem 1rem; font-size: .83rem; color: #6d4c00; margin-bottom: .6rem; text-align: center;
+    }
+    .btn-link {
+        background: none; border: none; color: #2d5a27; font-weight: 700;
+        cursor: pointer; text-decoration: underline; font-size: inherit; padding: 0;
+    }
+
+    /* Feedback */
+    .success-strip { background: #e8f5e9; border: 1px solid #66bb6a; border-radius: 6px; padding: .5rem 1rem; color: #2e7d32; font-size: .9rem; margin-top: .5rem; text-align: center; font-weight: 600; }
     .error-strip   { background: #fdecea; border: 1px solid #e57373; border-radius: 6px; padding: .5rem 1rem; color: #b71c1c; font-size: .85rem; margin-top: .5rem; }
 </style>

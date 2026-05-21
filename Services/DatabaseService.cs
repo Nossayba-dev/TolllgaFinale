@@ -78,6 +78,49 @@ public class DatabaseService
 
     // ══ WEIGHTS ═══════════════════════════════════════════════════════════════
 
+    /// <summary>
+    /// Returns the most recent incomplete record for this truck:
+    /// has GrossWeight but no Tare, or has Tare but no GrossWeight.
+    /// </summary>
+    public async Task<WeightRecord?> GetPendingRecordAsync(string matricule)
+    {
+        await InitAsync();
+        var records = await _db!.Table<WeightRecord>()
+            .Where(w => w.Matricule.ToLower() == matricule.ToLower())
+            .OrderByDescending(w => w.WeighingDate)
+            .ToListAsync();
+
+        return records.FirstOrDefault(w =>
+            (w.GrossWeight > 0 && w.Tare == 0) ||
+            (w.Tare > 0 && w.GrossWeight == 0));
+    }
+
+    /// <summary>
+    /// Fills the missing weight on an existing partial record and recalculates net.
+    /// Also syncs the truck's tare if it changed.
+    /// </summary>
+    public async Task CompleteWeightRecordAsync(
+        int id, double grossWeight, double tare, string? driverName)
+    {
+        await InitAsync();
+        var record = await _db!.FindAsync<WeightRecord>(id);
+        if (record is null) return;
+
+        record.GrossWeight = grossWeight;
+        record.Tare = tare;
+        record.NetWeight = grossWeight - tare;
+        if (driverName is not null) record.DriverName = driverName;
+        await _db!.UpdateAsync(record);
+
+        var truck = await GetTruckByMatriculeAsync(record.Matricule);
+        if (truck is not null && tare > 0 && Math.Abs(truck.Tare - tare) > 0.001)
+            await UpdateTruckTareAsync(truck.Id, tare);
+    }
+
+    /// <summary>
+    /// Saves a new record (can be partial: only brut=0 or tare=0).
+    /// Creates/updates the truck entry automatically.
+    /// </summary>
     public async Task<WeightRecord> SaveWeightRecordAsync(WeightRecord record)
     {
         await InitAsync();
@@ -85,7 +128,6 @@ public class DatabaseService
         record.WeighingDate = DateTime.UtcNow;
         await _db!.InsertAsync(record);
 
-        // Upsert truck + sync tare
         var truck = await GetTruckByMatriculeAsync(record.Matricule);
         if (truck is null)
         {
