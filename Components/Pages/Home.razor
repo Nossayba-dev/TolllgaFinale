@@ -15,8 +15,15 @@
             <div class="offline-title">Balance non connectée</div>
             <div class="offline-desc">
                 @(_offlineReason ?? "App 1 n'est pas en cours d'exécution.")<br />
-                
+                <small>Chemin surveillé : <code>@JsonService.FilePath</code></small>
             </div>
+            @if (_rawJsonDebug is not null)
+            {
+                <details class="debug-details">
+                    <summary>🔍 Contenu brut du fichier</summary>
+                    <pre class="debug-pre">@_rawJsonDebug</pre>
+                </details>
+            }
             <div class="offline-dot-row">
                 <span class="dot @(_dotFrame == 0 ? "dot-on" : "")"></span>
                 <span class="dot @(_dotFrame == 1 ? "dot-on" : "")"></span>
@@ -186,6 +193,7 @@
     private bool        _scaleConnected = false;   // true only when App 1 is actively writing
     private string?     _offlineReason  = null;    // human-readable reason shown in banner
     private int         _dotFrame       = 0;       // animated dots while waiting
+    private string?     _rawJsonDebug   = null;    // last raw content read from file
 
     // ── Pause / capture ───────────────────────────────────────────────────────
     private bool    _isPaused       = false;
@@ -504,28 +512,32 @@
         try
         {
             var prev = _liveData?.Weight;
+
+            // Capture raw file content for debug display
+            _rawJsonDebug = await JsonService.ReadRawAsync();
+
             var data = await JsonService.ReadWeightAsync();
 
             if (data is null)
             {
-                // ── File missing: App 1 has never started ─────────────────────
                 _scaleConnected = false;
-                _offlineReason = "App 1 est déconnectée.";
+                _offlineReason  = "Fichier introuvable — App 1 n'est pas démarrée.";
             }
-            else if (!data.IsConnected)
+            else if (data.IsConnected == false && _rawJsonDebug?.Contains("IsConnected") == true)
             {
-                // ── App 1 explicitly says it is disconnected ──────────────────
+                // App 1 explicitly wrote IsConnected:false
                 var stoppedAgo  = DateTime.UtcNow - data.UpdatedAt;
                 _scaleConnected = false;
                 _offlineReason  = data.StopTime.HasValue
                     ? $"App 1 arrêtée à {data.StopTime.Value.ToLocalTime():HH:mm:ss} (il y a {(int)stoppedAgo.TotalSeconds}s)."
-                    : "Fichier introuvable — App 1 n'est pas démarrée.";
+                    : "App 1 est déconnectée.";
             }
             else
             {
-                // ── IsConnected = true: App 1 is running ──────────────────────
+                // File exists and IsConnected is true OR field absent (default = connected)
                 _scaleConnected = true;
                 _offlineReason  = null;
+                _rawJsonDebug   = null;   // hide debug when connected
                 _liveData       = data;
                 _error          = null;
 
@@ -546,7 +558,7 @@
         catch (Exception ex)
         {
             _scaleConnected = false;
-            _offlineReason  = ex.Message;
+            _offlineReason  = $"Erreur de lecture : {ex.Message}";
             _dotFrame       = (_dotFrame + 1) % 3;
         }
     }
@@ -681,4 +693,17 @@
     /* Feedback */
     .success-strip { background: #e8f5e9; border: 1px solid #66bb6a; border-radius: 6px; padding: .5rem 1rem; color: #2e7d32; font-size: .9rem; margin-top: .5rem; text-align: center; font-weight: 600; }
     .error-strip   { background: #fdecea; border: 1px solid #e57373; border-radius: 6px; padding: .5rem 1rem; color: #b71c1c; font-size: .85rem; margin-top: .5rem; }
+
+    /* ── Debug panel ── */
+    .debug-details {
+        margin-top: .8rem; text-align: left;
+        background: #1a1a1a; border-radius: 6px; padding: .5rem .8rem;
+    }
+    .debug-details summary {
+        color: #aaa; font-size: .78rem; cursor: pointer; user-select: none;
+    }
+    .debug-pre {
+        color: #80cbc4; font-size: .72rem; white-space: pre-wrap;
+        word-break: break-all; margin-top: .5rem; max-height: 200px; overflow-y: auto;
+    }
 </style>

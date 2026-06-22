@@ -58,7 +58,7 @@
           bundle_green  = uses the OS-supplied SQLite on iOS/macOS/Android,
                           and includes a native binary for Windows/Linux.
         -->
-        <PackageReference Include="SQLitePCLRaw.bundle_green" Version="2.1.10" />
+        <PackageReference Include="SQLitePCLRaw.bundle_sqlcipher" Version="1.1.14" />
     </ItemGroup>
 
     <!-- System.IO.Ports: Windows ONLY — crashes Android if included globally -->

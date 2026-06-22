@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>TolllgaFinale</name>
+    </assembly>
+    <members>
+        <member name="T:TolllgaFinale.Services.AuthService">
+            <summary>
+            Manages users, sessions, and role checks.
+            Roles: "admin" (full access) | "operateur" (pesée only)
+            </summary>
+        </member>
+        <member name="M:TolllgaFinale.Services.AuthService.SeedDefaultUsersAsync">
+            <summary>Creates default admin and operateur accounts if no users exist.</summary>
+        </member>
+        <member name="M:TolllgaFinale.Services.DatabaseService.GetPendingRecordAsync(System.String)">
+            <summary>
+            Returns the most recent incomplete record for this truck:
+            has GrossWeight but no Tare, or has Tare but no GrossWeight.
+            </summary>
+        </member>
+        <member name="M:TolllgaFinale.Services.DatabaseService.CompleteWeightRecordAsync(System.Int32,System.Double,System.Double,System.String)">
+            <summary>
+            Fills the missing weight on an existing partial record and recalculates net.
+            Also syncs the truck's tare if it changed.
+            </summary>
+        </member>
+        <member name="M:TolllgaFinale.Services.DatabaseService.SaveWeightRecordAsync(TolllgaFinale.Models.WeightRecord)">
+            <summary>
+            Saves a new record (can be partial: only brut=0 or tare=0).
+            Creates/updates the truck entry automatically.
+            </summary>
+        </member>
+        <member name="T:WeightSyncFinale.Resource">
+            <summary>
+            Android Resource Designer class.
+            Exposes the Android Resource designer assembly into the project Namespace.
+            </summary>
+        </member>
+    </members>
+</doc>

@@ -4,16 +4,23 @@ using TolllgaFinale.Models;
 
 namespace TolllgaFinale.Services;
 
+/// <summary>
+/// Reads the shared JSON file written by App 1.
+/// Security: file is optionally AES-256 encrypted — falls back to plain JSON.
+/// Decimal normalisation handles French locale comma separators.
+/// </summary>
 public class JsonSharingService
 {
     private const string FolderName = "WeightSyncFinaleShared";
     private const string FileName = "current_weight.json";
 
-    // ── Shared JSON options — always invariant culture ────────────────────────
+    private byte[]? _jsonKey;
+
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
-        NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString,
+        NumberHandling =
+            System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString
     };
 
     public string FilePath
@@ -24,8 +31,7 @@ public class JsonSharingService
             return Path.Combine(
                 System.Environment.GetFolderPath(
                     System.Environment.SpecialFolder.CommonApplicationData),
-                FolderName,
-                FileName);
+                FolderName, FileName);
 #elif ANDROID
             return "/data/user/0/com.companyname.weightsyncfinale/files/"
                    + FolderName + "/" + FileName;
@@ -35,16 +41,44 @@ public class JsonSharingService
         }
     }
 
+    // ── Load encryption key once ──────────────────────────────────────────────
+    private async Task EnsureKeyAsync()
+    {
+        _jsonKey ??= await SecurityService.GetOrCreateJsonKeyAsync();
+    }
+
+    // ── Read raw file content (for debug display) ────────────────────────────
+    public async Task<string?> ReadRawAsync()
+    {
+        var path = FilePath;
+        if (!File.Exists(path)) return null;
+        try { return await File.ReadAllTextAsync(path); }
+        catch { return null; }
+    }
+
+    // ── Main read method ──────────────────────────────────────────────────────
     public async Task<WeightData?> ReadWeightAsync()
     {
         var path = FilePath;
-        if (!File.Exists(path))
-            return null;
+        if (!File.Exists(path)) return null;
 
-        var json = await File.ReadAllTextAsync(path);
+        await EnsureKeyAsync();
 
-        // Normalize: replace comma-decimal numbers in JSON
-        // e.g. "Weight": 0,86  →  "Weight": 0.86
+        var raw = await File.ReadAllTextAsync(path);
+
+        // Try AES-256 decryption first (if App 1 encrypts the file)
+        string json;
+        try
+        {
+            json = SecurityService.Decrypt(raw, _jsonKey!);
+        }
+        catch
+        {
+            // Not encrypted (plain JSON) — use as-is
+            json = raw;
+        }
+
+        // Normalise French decimal comma → dot
         json = NormalizeDecimalSeparator(json);
 
         try
@@ -53,16 +87,13 @@ public class JsonSharingService
         }
         catch
         {
-            // Fallback: manual parse of Weight from RawValue
             return ParseManually(json);
         }
     }
 
-    // ── Replace comma decimals inside JSON numeric values ─────────────────────
-    // Matches patterns like: "Weight": 0,86  or  "Weight":0,86
+    // ── Decimal normaliser ────────────────────────────────────────────────────
     private static string NormalizeDecimalSeparator(string json)
     {
-        // Replace only digit,digit patterns (not commas in strings)
         var sb = new System.Text.StringBuilder();
         bool inString = false;
         for (int i = 0; i < json.Length; i++)
@@ -71,21 +102,16 @@ public class JsonSharingService
             if (ch == '"' && (i == 0 || json[i - 1] != '\\'))
                 inString = !inString;
 
-            // Replace comma between digits only when outside a string
             if (!inString && ch == ',' && i > 0 && i < json.Length - 1
                 && char.IsDigit(json[i - 1]) && char.IsDigit(json[i + 1]))
-            {
                 sb.Append('.');
-            }
             else
-            {
                 sb.Append(ch);
-            }
         }
         return sb.ToString();
     }
 
-    // ── Last-resort manual parser using RawValue ──────────────────────────────
+    // ── Fallback manual parser ────────────────────────────────────────────────
     private static WeightData? ParseManually(string json)
     {
         try
@@ -94,8 +120,6 @@ public class JsonSharingService
             var root = doc.RootElement;
 
             double weight = 0;
-
-            // Try Weight field first
             if (root.TryGetProperty("Weight", out var wProp))
             {
                 if (wProp.ValueKind == JsonValueKind.Number)
@@ -105,15 +129,12 @@ public class JsonSharingService
                         NumberStyles.Any, CultureInfo.InvariantCulture, out weight);
             }
 
-            // If Weight is 0 or 1 (truncated), try to extract from RawValue
             if ((weight == 0 || weight == 1)
                 && root.TryGetProperty("RawValue", out var rvProp))
             {
                 var raw = rvProp.GetString() ?? "";
-                // Extract numeric part: keep digits, dot, comma
-                var numStr = new string(raw
-                    .Where(c => char.IsDigit(c) || c == '.' || c == ',')
-                    .ToArray())
+                var numStr = new string(
+                    raw.Where(c => char.IsDigit(c) || c == '.' || c == ',').ToArray())
                     .Replace(',', '.');
                 double.TryParse(numStr,
                     NumberStyles.Any, CultureInfo.InvariantCulture, out weight);
@@ -146,9 +167,6 @@ public class JsonSharingService
                 StopTime = stopTime
             };
         }
-        catch
-        {
-            return null;
-        }
+        catch { return null; }
     }
 }

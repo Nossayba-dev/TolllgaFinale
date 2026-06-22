@@ -7,6 +7,8 @@ public class DatabaseService
 {
     private SQLiteAsyncConnection? _db;
 
+
+
     public string DbPath =>
         Path.Combine(FileSystem.AppDataDirectory, "weightsync.db3");
 
@@ -14,8 +16,10 @@ public class DatabaseService
     public async Task InitAsync()
     {
         if (_db is not null) return;
-        _db = new SQLiteAsyncConnection(DbPath,
-              SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.SharedCache);
+        _db = new SQLiteAsyncConnection(new SQLiteConnectionString(
+            DbPath,
+            storeDateTimeAsTicks: true,
+            key: "YourStrongPassphrase_ChangeThis!"));
         await _db.CreateTableAsync<Truck>();
         await _db.CreateTableAsync<WeightRecord>();
     }
