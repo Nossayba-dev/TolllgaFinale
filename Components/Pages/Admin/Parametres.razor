@@ -41,6 +41,15 @@
         </div>
     </div>
 </div>
+<button class="btn-green" @onclick="OpenDbFolder">📂 Ouvrir dossier DB</button>
+
+@code {
+    private void OpenDbFolder()
+    {
+        var folder = Path.GetDirectoryName(Db.DbPath)!;
+        System.Diagnostics.Process.Start("explorer.exe", folder);
+    }
+}
 
 @if (_successMsg is not null)
 {

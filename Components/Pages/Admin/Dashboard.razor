@@ -15,7 +15,7 @@
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Poids Net Total (kg)</div>
-        <div class="kpi-value">@_totalNet.ToString("N0")</div>
+        <div class="kpi-value">@_totalNet.ToString("N3")</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Camions Enregistrés</div>
@@ -38,9 +38,13 @@
         <table class="tbl">
             <thead>
                 <tr>
-                    <th>Date</th>
+                    <th>Date Tare</th>
+                    <th>Opérateur Tare</th>
+                    <th>Date Brut</th>
+                    <th>Opérateur Brut</th>
                     <th>Matricule</th>
                     <th>Chauffeur</th>
+                    <th style="text-align:right">Amount</th>
                     <th style="text-align:right">Poids Brut (kg)</th>
                     <th style="text-align:right">Tare (kg)</th>
                     <th style="text-align:right">Poids Net (kg)</th>
@@ -50,12 +54,16 @@
                 @foreach (var w in _recent)
                 {
                     <tr>
-                        <td>@w.WeighingDate.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                        <td>@FormatDate(w.WeighingDateTare)</td>
+                        <td>@FormatOperator(w.OperatorTare)</td>
+                        <td>@FormatDate(w.WeighingDateGross)</td>
+                        <td>@FormatOperator(w.OperatorGross)</td>
                         <td class="bold">@w.Matricule</td>
                         <td>@(w.DriverName ?? "—")</td>
-                        <td style="text-align:right">@w.GrossWeight.ToString("N0")</td>
-                        <td style="text-align:right">@w.Tare.ToString("N0")</td>
-                        <td style="text-align:right" class="green">@w.NetWeight.ToString("N0")</td>
+                        <td style="text-align:right">@w.Amount.ToString("N3")</td>
+                        <td style="text-align:right">@w.GrossWeight.ToString("N3")</td>
+                        <td style="text-align:right">@w.Tare.ToString("N3")</td>
+                        <td style="text-align:right" class="green">@w.NetWeight.ToString("N3")</td>
                     </tr>
                 }
             </tbody>
@@ -80,12 +88,18 @@
         var all    = await Db.GetAllWeightsAsync();
         var trucks = await Db.GetAllTrucksAsync();
 
-        var today     = DateTime.UtcNow.Date;
-        _todayCount   = all.Count(w => w.WeighingDate.Date == today);
-        _totalNet     = all.Sum(w => w.NetWeight);
-        _truckCount   = trucks.Count;
-        _recent       = all.Take(20).ToList();
+        var today = DateTime.UtcNow.Date;
+        _todayCount = all.Count(w => w.MatchesWeighingDateRange(today, today));
+        _totalNet   = all.Sum(w => w.NetWeight);
+        _truckCount = trucks.Count;
+        _recent     = all.Take(20).ToList();
     }
+
+    private static string FormatDate(DateTime value)
+        => value == default ? "—" : value.ToLocalTime().ToString("dd/MM/yyyy HH:mm");
+
+    private static string FormatOperator(string? value)
+        => string.IsNullOrWhiteSpace(value) ? "—" : value;
 }
 
 <style>

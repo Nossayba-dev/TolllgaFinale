@@ -1,4 +1,5 @@
 @page "/pesee"
+@using System.Globalization
 @using TolllgaFinale.Services
 @using TolllgaFinale.Models
 @inject JsonSharingService JsonService
@@ -38,6 +39,10 @@
     <div class="weight-banner @(_flash ? "flash" : "")">
         <span class="weight-number">@DisplayWeight</span>
         <span class="weight-unit">kg</span>
+        @if (_isPaused && _capturedWeight.HasValue)
+        {
+            <div class="captured-label">✅ Poids capturé : @_capturedWeight.Value.ToString("0.000") kg</div>
+        }
     </div>
 
     @* ══ DIALOG: known truck with partial data ════════════════════════════════ *@
@@ -54,6 +59,7 @@
                     {
                         <p>Tare connue : <strong>@_knownTruck.Tare.ToString("0.000") kg</strong></p>
                     }
+                    <p>Poids capturé : <strong>@_capturedWeight?.ToString("0.000") kg</strong></p>
                     <p>Cette pesée est-elle :</p>
                     <div class="dialog-actions">
                         <button class="btn-d-orange" @onclick='() => ResolveTypeDialog("brut")'>🏋 Poids Brut</button>
@@ -154,6 +160,32 @@
         </div>
     </div>
 
+    <div class="section">
+        <div class="section-header">DÉTAILS DE LA PESÉE</div>
+        <div class="section-body form-row">
+            <div class="form-group">
+                <label>Produit</label>
+                <input type="text" @bind="_product" disabled="@_isPaused" />
+            </div>
+            <div class="form-group">
+                <label>Observation</label>
+                <input type="text" @bind="_observation" disabled="@_isPaused" />
+            </div>
+        </div>
+        <div class="section-body form-row" style="padding-top:0">
+            <div class="form-group" style="max-width:220px">
+                <label>Amount</label>
+                <input type="number"
+                       min="0"
+                       step="0.001"
+                       inputmode="decimal"
+                       @bind="_amountText"
+                       disabled="@_isPaused" />
+                <small style="color:#888;font-size:.78rem">Valeur numérique facultative ou obligatoire selon le processus métier.</small>
+            </div>
+        </div>
+    </div>
+
     @* ══ ACTIONS ════════════════════════════════════════════════════════════ *@
     <div class="actions-row">
         <button class="btn-annuler"     @onclick="Annuler">Annuler</button>
@@ -163,7 +195,6 @@
         </button>
     </div>
 
-    @* ── hint when only one weight captured ── *@
     @if (_isPaused && (_poidsBrut.HasValue ^ _poidsTare.HasValue))
     {
         <div class="hint-strip">
@@ -190,10 +221,10 @@
     private WeightData? _liveData;
     private string?     _error;
     private bool        _flash;
-    private bool        _scaleConnected = false;   // true only when App 1 is actively writing
-    private string?     _offlineReason  = null;    // human-readable reason shown in banner
-    private int         _dotFrame       = 0;       // animated dots while waiting
-    private string?     _rawJsonDebug   = null;    // last raw content read from file
+    private bool        _scaleConnected = false;
+    private string?     _offlineReason  = null;
+    private int         _dotFrame       = 0;
+    private string?     _rawJsonDebug   = null;
 
     // ── Pause / capture ───────────────────────────────────────────────────────
     private bool    _isPaused       = false;
@@ -208,7 +239,6 @@
     private double? _poidsBrut = null;
     private double? _poidsTare = null;
 
-    // Allow save when at least one weight is captured AND truck is paused (not live)
     private bool CanSave =>
         _isPaused && (_poidsBrut.HasValue || _poidsTare.HasValue);
 
@@ -221,12 +251,15 @@
     private string _matricule = "";
     private string _chauffeur = "";
     private string _typePesee = "brut";
+    private string _product = "";
+    private string _observation = "";
+    private string _amountText = "";
 
     // ── Dialog state ──────────────────────────────────────────────────────────
     private enum DialogKind { None, AskWeightType, CompleteOtherWeight }
     private DialogKind    _dialog        = DialogKind.None;
     private Truck?        _knownTruck    = null;
-    private WeightRecord? _pendingRecord = null;   // incomplete record in DB
+    private WeightRecord? _pendingRecord = null;
 
     // ── UI ────────────────────────────────────────────────────────────────────
     private bool   _saveSuccess = false;
@@ -253,24 +286,49 @@
         return Task.CompletedTask;
     }
 
+    private static string? NormalizeText(string value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private bool TryParseAmount(out double amount)
+    {
+        var text = _amountText.Trim();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            amount = 0;
+            return true;
+        }
+
+        return (double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out amount)
+                || double.TryParse(text.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out amount))
+            && amount >= 0;
+    }
+
+    private void ResetDraftFields()
+    {
+        _product = "";
+        _observation = "";
+        _amountText = "";
+    }
+
     // ══════════════════════════════════════════════════════════════════════════
-    // PAUSE / RESUME  — main entry point
+    // PAUSE / RESUME
     // ══════════════════════════════════════════════════════════════════════════
     private async Task TogglePauseAsync()
     {
         if (!_isPaused)
         {
-            // Guard: can't capture if scale is not connected
             if (!_scaleConnected || _liveData is null) return;
 
-            // ── PAUSE: freeze weight ──────────────────────────────────────────
+            // ── PAUSE: freeze weight immediately ──────────────────────────────
+            var captured = _liveData.Weight;   // snapshot before stopping timers
             _isPaused       = true;
-            _capturedWeight = _liveData?.Weight ?? 0;
+            _capturedWeight = captured;
             StopTimers();
+
+            System.Diagnostics.Debug.WriteLine($"[PAUSE] captured = {_capturedWeight}");
 
             if (string.IsNullOrWhiteSpace(_matricule))
             {
-                // No matricule → just assign from radio
                 AssignWeight(_typePesee);
                 return;
             }
@@ -279,32 +337,27 @@
 
             if (_knownTruck is not null)
             {
-                // Check for an incomplete pending record (has brut but no tare, or vice-versa)
                 _pendingRecord = await Db.GetPendingRecordAsync(_matricule);
 
                 if (_pendingRecord is not null)
                 {
-                    // There's an incomplete weighing → ask to complete it
                     _dialog = DialogKind.CompleteOtherWeight;
                     return;
                 }
 
-                // Known truck but no pending record → ask which weight type
                 _dialog = DialogKind.AskWeightType;
                 return;
             }
 
-            // Brand-new truck → assign from radio directly
+            // New truck → assign directly from radio
             AssignWeight(_typePesee);
         }
         else
         {
-            // ── RESUME: clear résumé and restart live ─────────────────────────
             ResumeFromPause();
         }
     }
 
-    // ── Dialog: user picks Brut or Tare (known truck, no pending record) ──────
     private void ResolveTypeDialog(string choice)
     {
         _dialog = DialogKind.None;
@@ -323,24 +376,20 @@
             _poidsTare = _knownTruck.Tare;
     }
 
-    // ── Dialog: complete an existing partial record ───────────────────────────
     private void CompleteExistingRecord()
     {
         _dialog = DialogKind.None;
 
         if (_pendingRecord is null) return;
 
-        // Figure out which weight is missing and fill in the captured value
         if (_pendingRecord.GrossWeight > 0 && _pendingRecord.Tare == 0)
         {
-            // Missing tare
             _poidsBrut = _pendingRecord.GrossWeight;
             _poidsTare = _capturedWeight;
             _typePesee = "tare";
         }
         else
         {
-            // Missing brut
             _poidsTare = _pendingRecord.Tare;
             _poidsBrut = _capturedWeight;
             _typePesee = "brut";
@@ -354,11 +403,12 @@
         AssignWeight(_typePesee);
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
     private void AssignWeight(string type)
     {
+        System.Diagnostics.Debug.WriteLine($"[AssignWeight] type={type} captured={_capturedWeight}");
         if (type == "brut") _poidsBrut = _capturedWeight;
         else                _poidsTare = _capturedWeight;
+        System.Diagnostics.Debug.WriteLine($"[AssignWeight] poidsBrut={_poidsBrut} poidsTare={_poidsTare}");
     }
 
     private void ResumeFromPause()
@@ -370,6 +420,7 @@
         _knownTruck     = null;
         _pendingRecord  = null;
         _dialog         = DialogKind.None;
+        ResetDraftFields();
         StartTimers();
     }
 
@@ -382,28 +433,44 @@
         _error       = null;
         _saveSuccess = false;
 
+        if (!TryParseAmount(out var amount))
+        {
+            _error = "Amount invalide.";
+            return;
+        }
+
+        System.Diagnostics.Debug.WriteLine($"[SAVE] poidsBrut={_poidsBrut} poidsTare={_poidsTare} amount={amount}");
+
         try
         {
+            var product = NormalizeText(_product);
+            var observation = NormalizeText(_observation);
+
             if (_pendingRecord is not null && _poidsBrut.HasValue && _poidsTare.HasValue)
             {
-                // Complete an existing partial record
                 await Db.CompleteWeightRecordAsync(
                     _pendingRecord.Id,
                     _poidsBrut.Value,
                     _poidsTare.Value,
-                    string.IsNullOrWhiteSpace(_chauffeur) ? null : _chauffeur);
+                    string.IsNullOrWhiteSpace(_chauffeur) ? null : _chauffeur,
+                    product,
+                    observation,
+                    amount);
             }
             else
             {
-                // Save a new record (can be partial: only brut, or only tare)
                 var record = new WeightRecord
                 {
                     Matricule   = _matricule,
                     DriverName  = string.IsNullOrWhiteSpace(_chauffeur) ? null : _chauffeur,
+                    Product     = product,
+                    Observation = observation,
+                    Amount      = amount,
                     GrossWeight = _poidsBrut ?? 0,
                     Tare        = _poidsTare ?? 0,
                     NetWeight   = (_poidsBrut ?? 0) - (_poidsTare ?? 0)
                 };
+                System.Diagnostics.Debug.WriteLine($"[SAVE] inserting GrossWeight={record.GrossWeight} Tare={record.Tare} Net={record.NetWeight} Amount={record.Amount}");
                 await Db.SaveWeightRecordAsync(record);
             }
 
@@ -415,7 +482,6 @@
                 InvokeAsync(StateHasChanged);
             });
 
-            // Reset form but keep timers running (already resumed)
             _isPaused       = false;
             _capturedWeight = null;
             _poidsBrut      = null;
@@ -426,13 +492,14 @@
             _matricule      = "";
             _chauffeur      = "";
             _typePesee      = "brut";
+            ResetDraftFields();
 
-            // Restart timers since we were paused
             StartTimers();
         }
         catch (Exception ex)
         {
             _error = ex.Message;
+            System.Diagnostics.Debug.WriteLine($"[SAVE ERROR]: {ex}");
         }
     }
 
@@ -449,6 +516,7 @@
         _dialog         = DialogKind.None;
         _saveSuccess    = false;
         _error          = null;
+        ResetDraftFields();
 
         if (_isPaused)
         {
@@ -460,7 +528,7 @@
     // ── Timers ────────────────────────────────────────────────────────────────
     private void StartTimers()
     {
-        if (_pollTimer is not null) return;   // already running
+        if (_pollTimer is not null) return;
         _cts        = new CancellationTokenSource();
         _pollTimer  = new PeriodicTimer(TimeSpan.FromMilliseconds(300));
         _clockTimer = new PeriodicTimer(TimeSpan.FromSeconds(1));
@@ -512,10 +580,7 @@
         try
         {
             var prev = _liveData?.Weight;
-
-            // Capture raw file content for debug display
             _rawJsonDebug = await JsonService.ReadRawAsync();
-
             var data = await JsonService.ReadWeightAsync();
 
             if (data is null)
@@ -525,7 +590,6 @@
             }
             else if (data.IsConnected == false && _rawJsonDebug?.Contains("IsConnected") == true)
             {
-                // App 1 explicitly wrote IsConnected:false
                 var stoppedAgo  = DateTime.UtcNow - data.UpdatedAt;
                 _scaleConnected = false;
                 _offlineReason  = data.StopTime.HasValue
@@ -534,10 +598,9 @@
             }
             else
             {
-                // File exists and IsConnected is true OR field absent (default = connected)
                 _scaleConnected = true;
                 _offlineReason  = null;
-                _rawJsonDebug   = null;   // hide debug when connected
+                _rawJsonDebug   = null;
                 _liveData       = data;
                 _error          = null;
 
@@ -582,34 +645,20 @@
         font-family: 'Segoe UI', sans-serif; background: #f0f0f0; min-height: 100vh;
     }
 
-    /* ── Offline banner ── */
     .offline-banner {
-        background: #fff;
-        border: 2px dashed #e0e0e0;
-        border-radius: 14px;
-        padding: 2.5rem 2rem;
-        text-align: center;
-        margin-bottom: 1rem;
+        background: #fff; border: 2px dashed #e0e0e0; border-radius: 14px;
+        padding: 2.5rem 2rem; text-align: center; margin-bottom: 1rem;
         animation: fade-in .4s ease;
     }
     @@keyframes fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; } }
-
     .offline-icon  { font-size: 2.8rem; margin-bottom: .6rem; }
     .offline-title { font-size: 1.3rem; font-weight: 700; color: #c0392b; margin-bottom: .5rem; }
     .offline-desc  { font-size: .88rem; color: #666; line-height: 1.6; margin-bottom: 1.2rem; }
-    .offline-desc code {
-        background: #f5f5f5; border-radius: 4px;
-        padding: .1rem .4rem; font-size: .78rem; word-break: break-all; color: #555;
-    }
-
+    .offline-desc code { background: #f5f5f5; border-radius: 4px; padding: .1rem .4rem; font-size: .78rem; word-break: break-all; color: #555; }
     .offline-dot-row { display: flex; justify-content: center; gap: .6rem; }
-    .dot {
-        width: 10px; height: 10px; border-radius: 50%;
-        background: #ddd; transition: background .3s;
-    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: #ddd; transition: background .3s; }
     .dot.dot-on { background: #c0392b; }
 
-    /* Banner */
     .weight-banner {
         background: #fff; border-radius: 10px; text-align: center;
         padding: 1.2rem 1rem; margin-bottom: 1rem;
@@ -619,8 +668,8 @@
     .weight-banner.flash { transform: scale(1.01); box-shadow: 0 0 18px rgba(30,100,30,.3); }
     .weight-number { font-size: 3.8rem; font-weight: 700; color: #1b3a1b; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
     .weight-unit   { font-size: 1.8rem; color: #1b3a1b; margin-left: .4rem; }
+    .captured-label { font-size: .85rem; color: #2d5a27; font-weight: 700; margin-top: .3rem; }
 
-    /* Dialog */
     .dialog-overlay {
         position: fixed; inset: 0; background: rgba(0,0,0,.5);
         display: flex; align-items: center; justify-content: center; z-index: 999;
@@ -637,18 +686,16 @@
     .btn-d-gray   { background: #777;    color: #fff; border: none; border-radius: 8px; padding: .65rem 1rem; font-size: .93rem; cursor: pointer; font-weight: 600; }
     .btn-d-cancel { background: #f0f0f0; color: #555; border: none; border-radius: 8px; padding: .5rem 1rem; font-size: .85rem; cursor: pointer; }
 
-    /* Section */
     .section { background: #fff; border-radius: 10px; margin-bottom: 1rem; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.07); }
     .section-header { background: #2d5a27; color: #fff; font-weight: 700; font-size: .95rem; letter-spacing: .06em; padding: .7rem 1.2rem; }
     .section-body { padding: 1rem 1.2rem; }
     .form-row { display: flex; gap: 1.2rem; flex-wrap: wrap; }
     .form-group { flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: .3rem; }
     .form-group label { font-size: .85rem; color: #333; }
-    .form-group input[type=text] { border: 1px solid #ccc; border-radius: 5px; padding: .45rem .7rem; font-size: .95rem; outline: none; width: 100%; }
-    .form-group input[type=text]:focus    { border-color: #2d5a27; }
-    .form-group input[type=text]:disabled { background: #f5f5f5; color: #999; cursor: not-allowed; }
+    .form-group input[type=text], .form-group input[type=number] { border: 1px solid #ccc; border-radius: 5px; padding: .45rem .7rem; font-size: .95rem; outline: none; width: 100%; }
+    .form-group input[type=text]:focus, .form-group input[type=number]:focus { border-color: #2d5a27; }
+    .form-group input[type=text]:disabled, .form-group input[type=number]:disabled { background: #f5f5f5; color: #999; cursor: not-allowed; }
 
-    /* Panels */
     .row-panels { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
     .panel { background: #fff; border-radius: 10px; padding: 1rem 1.2rem; box-shadow: 0 2px 8px rgba(0,0,0,.07); flex: 1; min-width: 200px; }
     .panel-title { font-weight: 700; font-size: .9rem; color: #222; margin-bottom: .6rem; }
@@ -659,7 +706,6 @@
     .btn-pause { background: #2d5a27; color: #fff; border: none; border-radius: 8px; padding: .55rem 1.1rem; font-size: .88rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
     .btn-pause:hover { background: #1e3d1a; }
 
-    /* Résumé */
     .resume-title { font-weight: 700; font-size: 1rem; color: #222; margin-bottom: .6rem; }
     .resume-row   { display: flex; gap: .8rem; margin-bottom: 1.2rem; flex-wrap: wrap; }
     .resume-card  { flex: 1; min-width: 130px; border-radius: 10px; padding: 1rem .8rem; text-align: center; color: #fff; }
@@ -669,7 +715,6 @@
     .resume-label { font-size: .78rem; font-weight: 600; opacity: .9; margin-bottom: .3rem; }
     .resume-value { font-size: 1.7rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 
-    /* Actions */
     .actions-row { display: flex; justify-content: center; gap: 1rem; margin-bottom: .8rem; }
     .btn-annuler, .btn-enregistrer {
         border: none; border-radius: 8px; padding: .65rem 2rem;
@@ -680,30 +725,16 @@
     .btn-enregistrer:hover    { background: #1e3d1a; }
     .btn-enregistrer:disabled { opacity: .35; cursor: not-allowed; }
 
-    /* Hint */
     .hint-strip {
         background: #fff8e1; border: 1px solid #ffe082; border-radius: 6px;
         padding: .5rem 1rem; font-size: .83rem; color: #6d4c00; margin-bottom: .6rem; text-align: center;
     }
-    .btn-link {
-        background: none; border: none; color: #2d5a27; font-weight: 700;
-        cursor: pointer; text-decoration: underline; font-size: inherit; padding: 0;
-    }
+    .btn-link { background: none; border: none; color: #2d5a27; font-weight: 700; cursor: pointer; text-decoration: underline; font-size: inherit; padding: 0; }
 
-    /* Feedback */
     .success-strip { background: #e8f5e9; border: 1px solid #66bb6a; border-radius: 6px; padding: .5rem 1rem; color: #2e7d32; font-size: .9rem; margin-top: .5rem; text-align: center; font-weight: 600; }
     .error-strip   { background: #fdecea; border: 1px solid #e57373; border-radius: 6px; padding: .5rem 1rem; color: #b71c1c; font-size: .85rem; margin-top: .5rem; }
 
-    /* ── Debug panel ── */
-    .debug-details {
-        margin-top: .8rem; text-align: left;
-        background: #1a1a1a; border-radius: 6px; padding: .5rem .8rem;
-    }
-    .debug-details summary {
-        color: #aaa; font-size: .78rem; cursor: pointer; user-select: none;
-    }
-    .debug-pre {
-        color: #80cbc4; font-size: .72rem; white-space: pre-wrap;
-        word-break: break-all; margin-top: .5rem; max-height: 200px; overflow-y: auto;
-    }
+    .debug-details { margin-top: .8rem; text-align: left; background: #1a1a1a; border-radius: 6px; padding: .5rem .8rem; }
+    .debug-details summary { color: #aaa; font-size: .78rem; cursor: pointer; user-select: none; }
+    .debug-pre { color: #80cbc4; font-size: .72rem; white-space: pre-wrap; word-break: break-all; margin-top: .5rem; max-height: 200px; overflow-y: auto; }
 </style>

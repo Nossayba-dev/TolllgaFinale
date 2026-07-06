@@ -20,6 +20,8 @@ public class AuthService
     public bool IsAdmin => _currentUser?.Role == "admin";
     public bool IsOperateur => _currentUser?.Role == "operateur";
     public string UserRole => _currentUser?.Role ?? "";
+    public string CurrentUserLabel =>
+        string.IsNullOrWhiteSpace(_currentUser?.Username) ? "system" : _currentUser.Username;
 
     // Notify layout/shell when login state changes
     public event Action? OnAuthChanged;

@@ -92,26 +92,24 @@ public class JsonSharingService
     }
 
     // ── Decimal normaliser ────────────────────────────────────────────────────
+    // FIX: The old char-by-char method failed on cases like {"Weight": 72,5, "RawValue":...}
+    // because it checked json[i+1] for a digit, but the character after "5" in "72,5,"
+    // is a comma (JSON field separator), not a digit — so the replacement never fired.
+    // The regex (\d),(\d) correctly identifies decimal commas: a comma sitting between
+    // two digit characters is always a decimal separator, never a JSON structural comma.
     private static string NormalizeDecimalSeparator(string json)
     {
-        var sb = new System.Text.StringBuilder();
-        bool inString = false;
-        for (int i = 0; i < json.Length; i++)
-        {
-            char ch = json[i];
-            if (ch == '"' && (i == 0 || json[i - 1] != '\\'))
-                inString = !inString;
-
-            if (!inString && ch == ',' && i > 0 && i < json.Length - 1
-                && char.IsDigit(json[i - 1]) && char.IsDigit(json[i + 1]))
-                sb.Append('.');
-            else
-                sb.Append(ch);
-        }
-        return sb.ToString();
+        return System.Text.RegularExpressions.Regex.Replace(
+            json,
+            @"(\d),(\d)",
+            "$1.$2");
     }
 
     // ── Fallback manual parser ────────────────────────────────────────────────
+    // FIX: The old code had `if ((weight == 0 || weight == 1) && ...)` which discarded
+    // a legitimate weight of exactly 1.000 kg and tried to re-parse from RawValue,
+    // which would often fail and return 0. Now we use a `weightParsed` flag and only
+    // fall back to RawValue when the Weight field genuinely could not be parsed at all.
     private static WeightData? ParseManually(string json)
     {
         try
@@ -120,17 +118,24 @@ public class JsonSharingService
             var root = doc.RootElement;
 
             double weight = 0;
+            bool weightParsed = false;
+
             if (root.TryGetProperty("Weight", out var wProp))
             {
                 if (wProp.ValueKind == JsonValueKind.Number)
+                {
                     weight = wProp.GetDouble();
+                    weightParsed = true;
+                }
                 else if (wProp.ValueKind == JsonValueKind.String)
-                    double.TryParse(wProp.GetString(),
+                {
+                    weightParsed = double.TryParse(wProp.GetString(),
                         NumberStyles.Any, CultureInfo.InvariantCulture, out weight);
+                }
             }
 
-            if ((weight == 0 || weight == 1)
-                && root.TryGetProperty("RawValue", out var rvProp))
+            // Only fall back to RawValue if Weight could NOT be parsed at all
+            if (!weightParsed && root.TryGetProperty("RawValue", out var rvProp))
             {
                 var raw = rvProp.GetString() ?? "";
                 var numStr = new string(

@@ -31,7 +31,7 @@
 {
     <div class="summary-strip">
         <span><strong>@_filtered.Count</strong> pesée(s)</span>
-        <span>Poids Net Total : <strong>@_filtered.Sum(w => w.NetWeight).ToString("N0") kg</strong></span>
+        <span>Poids Net Total : <strong>@_filtered.Sum(w => w.NetWeight).ToString("N3") kg</strong></span>
     </div>
 }
 
@@ -50,9 +50,13 @@
         <table class="tbl">
             <thead>
                 <tr>
-                    <th>Date</th>
+                    <th>Date Tare</th>
+                    <th>Opérateur Tare</th>
+                    <th>Date Brut</th>
+                    <th>Opérateur Brut</th>
                     <th>Matricule</th>
                     <th>Chauffeur</th>
+                    <th style="text-align:right">Amount</th>
                     <th style="text-align:right">Poids Brut (kg)</th>
                     <th style="text-align:right">Tare (kg)</th>
                     <th style="text-align:right">Poids Net (kg)</th>
@@ -63,12 +67,16 @@
                 @foreach (var w in _filtered)
                 {
                     <tr>
-                        <td>@w.WeighingDate.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                        <td>@FormatDate(w.WeighingDateTare)</td>
+                        <td>@FormatOperator(w.OperatorTare)</td>
+                        <td>@FormatDate(w.WeighingDateGross)</td>
+                        <td>@FormatOperator(w.OperatorGross)</td>
                         <td class="bold">@w.Matricule</td>
                         <td>@(w.DriverName ?? "—")</td>
-                        <td style="text-align:right">@w.GrossWeight.ToString("N0")</td>
-                        <td style="text-align:right">@w.Tare.ToString("N0")</td>
-                        <td style="text-align:right" class="green">@w.NetWeight.ToString("N0")</td>
+                        <td style="text-align:right">@w.Amount.ToString("N3")</td>
+                        <td style="text-align:right">@w.GrossWeight.ToString("N3")</td>
+                        <td style="text-align:right">@w.Tare.ToString("N3")</td>
+                        <td style="text-align:right" class="green">@w.NetWeight.ToString("N3")</td>
                         <td>
                             <button class="btn-red btn-sm" @onclick="() => DeleteAsync(w)">🗑</button>
                         </td>
@@ -85,7 +93,11 @@
     <div class="dialog-overlay">
         <div class="dialog">
             <div class="dialog-title">Confirmer la suppression</div>
-            <p>Supprimer la pesée du <strong>@_deleteTarget.WeighingDate.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</strong> pour <strong>@_deleteTarget.Matricule</strong> ?</p>
+            <p>
+                Supprimer la pesée du
+                <strong>@FormatDate(_deleteTarget.GetLatestWeighingDate())</strong>
+                pour <strong>@_deleteTarget.Matricule</strong> ?
+            </p>
             <div class="dialog-actions">
                 <button class="btn-red"  @onclick="ConfirmDeleteAsync">Supprimer</button>
                 <button class="btn-gray" @onclick="() => _deleteTarget = null">Annuler</button>
@@ -114,14 +126,20 @@
     private void ApplyFilter()
     {
         if (_all is null) return;
+
+        var hasDateFilter = _filterFrom.HasValue || _filterTo.HasValue;
+        var from = _filterFrom ?? DateTime.MinValue;
+        var to = _filterTo ?? DateTime.MaxValue;
+
         _filtered = _all.Where(w =>
         {
             if (!string.IsNullOrWhiteSpace(_filterMatricule) &&
                 !w.Matricule.Contains(_filterMatricule, StringComparison.OrdinalIgnoreCase))
                 return false;
-            var local = w.WeighingDate.ToLocalTime();
-            if (_filterFrom.HasValue && local.Date < _filterFrom.Value.Date) return false;
-            if (_filterTo.HasValue   && local.Date > _filterTo.Value.Date)   return false;
+
+            if (hasDateFilter && !w.MatchesWeighingDateRange(from, to))
+                return false;
+
             return true;
         }).ToList();
     }
@@ -143,6 +161,12 @@
         _all = await Db.GetAllWeightsAsync();
         ApplyFilter();
     }
+
+    private static string FormatDate(DateTime value)
+        => value == default ? "—" : value.ToLocalTime().ToString("dd/MM/yyyy HH:mm");
+
+    private static string FormatOperator(string? value)
+        => string.IsNullOrWhiteSpace(value) ? "—" : value;
 }
 
 <style>
