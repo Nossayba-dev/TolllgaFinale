@@ -70,11 +70,12 @@ public class AuthService
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
             return (false, "Veuillez remplir tous les champs.");
 
-        // sqlite-net-pcl cannot translate .ToLower() to SQL — load all, filter in C#
+        // sqlite-net-pcl cannot translate .ToLowerInvariant() reliably to SQL.
+        // Load users first, then normalize and compare in C#.
         var normalised = username.Trim().ToLowerInvariant();
         var allUsers = await _db!.Table<AppUser>().ToListAsync();
         var user = allUsers.FirstOrDefault(
-                             u => u.Username.ToLowerInvariant() == normalised);
+            u => (u.Username ?? string.Empty).Trim().ToLowerInvariant() == normalised);
 
         if (user is null)
             return (false, "Nom d'utilisateur introuvable.");
@@ -111,9 +112,13 @@ public class AuthService
         if (password.Length < 4) return (false, "Mot de passe trop court (min 4 caractères).");
         if (role != "admin" && role != "operateur") return (false, "Rôle invalide.");
 
-        var exists = await _db!.Table<AppUser>()
-            .Where(u => u.Username.ToLower() == username.ToLower().Trim())
-            .FirstOrDefaultAsync();
+        // Avoid putting Trim()/ToLower() inside the SQLite query.
+        // SQLite-net-pcl may translate that into SQL trim() usage that can fail.
+        var normalizedUsername = username.Trim().ToLowerInvariant();
+        var allUsers = await _db!.Table<AppUser>().ToListAsync();
+        var exists = allUsers.FirstOrDefault(u =>
+            (u.Username ?? string.Empty).Trim().ToLowerInvariant() == normalizedUsername);
+
         if (exists is not null) return (false, "Ce nom d'utilisateur existe déjà.");
 
         await _db.InsertAsync(new AppUser

@@ -42,15 +42,19 @@
                 <a href="/utilisateurs" class="nav-item @(IsActive("/utilisateurs") ? "active" : "")">
                     <span class="nav-icon">👤</span> Utilisateurs
                 </a>
-                <a href="/parametres" class="nav-item @(IsActive("/parametres") ? "active" : "")">
-                    <span class="nav-icon">⚙</span> Paramètres
-                </a>
+
                 <div class="nav-divider"></div>
             }
 
-            @* Both roles see Pesée *@
+            @* Both roles see Pesée, Tickets and printer settings *@
             <a href="/pesee" class="nav-item @(IsActive("/pesee") ? "active" : "")">
                 <span class="nav-icon">⚖</span> Nouvelle Pesée
+            </a>
+            <a href="/tickets" class="nav-item @(IsActive("/tickets") ? "active" : "")">
+                <span class="nav-icon">🧾</span> Tickets
+            </a>
+            <a href="/parametres" class="nav-item @(IsActive("/parametres") ? "active" : "")">
+                <span class="nav-icon">⚙</span> Paramètres
             </a>
         </div>
 

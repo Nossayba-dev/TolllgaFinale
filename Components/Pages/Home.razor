@@ -4,6 +4,8 @@
 @using TolllgaFinale.Models
 @inject JsonSharingService JsonService
 @inject DatabaseService    Db
+@inject IPrinterService    PrinterService
+@inject NavigationManager  Nav
 @implements IAsyncDisposable
 
 <div class="page">
@@ -193,7 +195,13 @@
                 disabled="@(!CanSave)">
             Enregistrer
         </button>
+        <button class="btn-imprimer" @onclick="EnregistrerAndPrintAsync" disabled="@(!CanSave)">Enregistrer &amp; Imprimer</button>
     </div>
+
+    @if (!string.IsNullOrWhiteSpace(_lastPdfPath))
+    {
+        <div class="success-strip">✅ PDF généré : <code>@_lastPdfPath</code> — <button class="btn-link" @onclick="NavigateToTickets">Voir les tickets</button></div>
+    }
 
     @if (_isPaused && (_poidsBrut.HasValue ^ _poidsTare.HasValue))
     {
@@ -264,6 +272,7 @@
     // ── UI ────────────────────────────────────────────────────────────────────
     private bool   _saveSuccess = false;
     private string _clock       = DateTime.Now.ToString("HH:mm:ss");
+    private string? _lastPdfPath = null;
 
     // ── Timers ────────────────────────────────────────────────────────────────
     private PeriodicTimer?          _pollTimer;
@@ -482,6 +491,7 @@
                 InvokeAsync(StateHasChanged);
             });
 
+            // Reset form like EnregistrerAsync
             _isPaused       = false;
             _capturedWeight = null;
             _poidsBrut      = null;
@@ -502,6 +512,104 @@
             System.Diagnostics.Debug.WriteLine($"[SAVE ERROR]: {ex}");
         }
     }
+
+    private async Task EnregistrerAndPrintAsync()
+    {
+        if (!CanSave) return;
+        _error = null;
+        _saveSuccess = false;
+        _lastPdfPath = null;
+
+        if (!TryParseAmount(out var amount))
+        {
+            _error = "Amount invalide.";
+            return;
+        }
+
+        try
+        {
+            var product = NormalizeText(_product);
+            var observation = NormalizeText(_observation);
+            WeightRecord? savedRecord = null;
+
+            if (_pendingRecord is not null && _poidsBrut.HasValue && _poidsTare.HasValue)
+            {
+                await Db.CompleteWeightRecordAsync(
+                    _pendingRecord.Id,
+                    _poidsBrut.Value,
+                    _poidsTare.Value,
+                    string.IsNullOrWhiteSpace(_chauffeur) ? null : _chauffeur,
+                    product,
+                    observation,
+                    amount);
+
+                savedRecord = await Db.GetWeightRecordByIdAsync(_pendingRecord.Id);
+            }
+            else
+            {
+                var record = new WeightRecord
+                {
+                    Matricule   = _matricule,
+                    DriverName  = string.IsNullOrWhiteSpace(_chauffeur) ? null : _chauffeur,
+                    Product     = product,
+                    Observation = observation,
+                    Amount      = amount,
+                    GrossWeight = _poidsBrut ?? 0,
+                    Tare        = _poidsTare ?? 0,
+                    NetWeight   = (_poidsBrut ?? 0) - (_poidsTare ?? 0)
+                };
+
+                savedRecord = await Db.SaveWeightRecordAsync(record);
+            }
+
+            if (savedRecord is null)
+            {
+                _error = "La pesée a été enregistrée, mais le ticket n'a pas pu être préparé.";
+                return;
+            }
+
+            var printResult = await PrinterService.PrintWeightRecordAsync(savedRecord);
+            if (!printResult.Success)
+            {
+                _error = printResult.Message;
+                return;
+            }
+
+            _lastPdfPath = printResult.PdfPath;
+            _saveSuccess = true;
+
+            _ = Task.Delay(3000).ContinueWith(_ =>
+            {
+                _saveSuccess = false;
+                InvokeAsync(StateHasChanged);
+            });
+
+            // Reset form like EnregistrerAsync
+            _isPaused       = false;
+            _capturedWeight = null;
+            _poidsBrut      = null;
+            _poidsTare      = null;
+            _knownTruck     = null;
+            _pendingRecord  = null;
+            _dialog         = DialogKind.None;
+            _matricule      = "";
+            _chauffeur      = "";
+            _typePesee      = "brut";
+            ResetDraftFields();
+
+            StartTimers();
+
+            // Navigate to tickets view so user can see the generated file
+            Nav.NavigateTo("/tickets");
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            System.Diagnostics.Debug.WriteLine($"[SAVE & PRINT ERROR]: {ex}");
+        }
+    }
+
+    private void NavigateToTickets() => Nav.NavigateTo("/tickets");
 
     private void Annuler()
     {
@@ -678,32 +786,32 @@
         background: #fff; border-radius: 14px; padding: 2rem 1.8rem;
         max-width: 440px; width: 92%; box-shadow: 0 8px 32px rgba(0,0,0,.22); text-align: center;
     }
-    .dialog-title { font-size: 1.15rem; font-weight: 700; color: #2d5a27; margin-bottom: .8rem; }
+    .dialog-title { font-size: 1.15rem; font-weight: 700; color: #2d5a1b; margin-bottom: .8rem; }
     .dialog p { font-size: .9rem; color: #333; margin-bottom: .5rem; line-height: 1.5; }
     .dialog-actions { display: flex; flex-direction: column; gap: .55rem; margin-top: 1.1rem; }
-    .btn-d-green  { background: #2d5a27; color: #fff; border: none; border-radius: 8px; padding: .65rem 1rem; font-size: .93rem; cursor: pointer; font-weight: 600; }
+    .btn-d-green  { background: #2d5a1b; color: #fff; border: none; border-radius: 8px; padding: .65rem 1rem; font-size: .93rem; cursor: pointer; font-weight: 600; }
     .btn-d-orange { background: #e07b30; color: #fff; border: none; border-radius: 8px; padding: .65rem 1rem; font-size: .93rem; cursor: pointer; font-weight: 600; }
     .btn-d-gray   { background: #777;    color: #fff; border: none; border-radius: 8px; padding: .65rem 1rem; font-size: .93rem; cursor: pointer; font-weight: 600; }
     .btn-d-cancel { background: #f0f0f0; color: #555; border: none; border-radius: 8px; padding: .5rem 1rem; font-size: .85rem; cursor: pointer; }
 
     .section { background: #fff; border-radius: 10px; margin-bottom: 1rem; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.07); }
-    .section-header { background: #2d5a27; color: #fff; font-weight: 700; font-size: .95rem; letter-spacing: .06em; padding: .7rem 1.2rem; }
+    .section-header { background: #2d5a1b; color: #fff; font-weight: 700; font-size: .95rem; letter-spacing: .06em; padding: .7rem 1.2rem; }
     .section-body { padding: 1rem 1.2rem; }
     .form-row { display: flex; gap: 1.2rem; flex-wrap: wrap; }
     .form-group { flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: .3rem; }
     .form-group label { font-size: .85rem; color: #333; }
     .form-group input[type=text], .form-group input[type=number] { border: 1px solid #ccc; border-radius: 5px; padding: .45rem .7rem; font-size: .95rem; outline: none; width: 100%; }
-    .form-group input[type=text]:focus, .form-group input[type=number]:focus { border-color: #2d5a27; }
+    .form-group input[type=text]:focus, .form-group input[type=number]:focus { border-color: #2d5a1b; }
     .form-group input[type=text]:disabled, .form-group input[type=number]:disabled { background: #f5f5f5; color: #999; cursor: not-allowed; }
 
     .row-panels { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
     .panel { background: #fff; border-radius: 10px; padding: 1rem 1.2rem; box-shadow: 0 2px 8px rgba(0,0,0,.07); flex: 1; min-width: 200px; }
     .panel-title { font-weight: 700; font-size: .9rem; color: #222; margin-bottom: .6rem; }
     .radio-label { display: flex; align-items: center; gap: .4rem; font-size: .9rem; color: #333; margin-bottom: .3rem; cursor: pointer; }
-    .radio-label input { accent-color: #2d5a27; }
+    .radio-label input { accent-color: #2d5a1b; }
     .panel-right { display: flex; flex-direction: column; align-items: flex-start; gap: .5rem; }
     .clock { font-size: 1.9rem; font-weight: 700; color: #1b3a1b; font-variant-numeric: tabular-nums; }
-    .btn-pause { background: #2d5a27; color: #fff; border: none; border-radius: 8px; padding: .55rem 1.1rem; font-size: .88rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .btn-pause { background: #2d5a1b; color: #fff; border: none; border-radius: 8px; padding: .55rem 1.1rem; font-size: .88rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
     .btn-pause:hover { background: #1e3d1a; }
 
     .resume-title { font-weight: 700; font-size: 1rem; color: #222; margin-bottom: .6rem; }
@@ -711,7 +819,7 @@
     .resume-card  { flex: 1; min-width: 130px; border-radius: 10px; padding: 1rem .8rem; text-align: center; color: #fff; }
     .resume-card.orange { background: #e07b30; }
     .resume-card.gray   { background: #888; }
-    .resume-card.green  { background: #2d5a27; }
+    .resume-card.green  { background: #2d5a1b; }
     .resume-label { font-size: .78rem; font-weight: 600; opacity: .9; margin-bottom: .3rem; }
     .resume-value { font-size: 1.7rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 
@@ -721,15 +829,18 @@
         font-size: 1rem; font-weight: 600; cursor: pointer; min-width: 140px;
     }
     .btn-annuler     { background: #888; color: #fff; }
-    .btn-enregistrer { background: #2d5a27; color: #fff; transition: background .2s; }
+    .btn-enregistrer { background: #2d5a1b; color: #fff; transition: background .2s; }
     .btn-enregistrer:hover    { background: #1e3d1a; }
     .btn-enregistrer:disabled { opacity: .35; cursor: not-allowed; }
+
+    .btn-imprimer { background: #1e5aa6; color: #fff; border: none; border-radius: 8px; padding: .65rem 1.2rem; font-size: 1rem; font-weight: 600; cursor: pointer; }
+    .btn-imprimer:hover { background: #15457a; }
 
     .hint-strip {
         background: #fff8e1; border: 1px solid #ffe082; border-radius: 6px;
         padding: .5rem 1rem; font-size: .83rem; color: #6d4c00; margin-bottom: .6rem; text-align: center;
     }
-    .btn-link { background: none; border: none; color: #2d5a27; font-weight: 700; cursor: pointer; text-decoration: underline; font-size: inherit; padding: 0; }
+    .btn-link { background: none; border: none; color: #2d5a1b; font-weight: 700; cursor: pointer; text-decoration: underline; font-size: inherit; padding: 0; }
 
     .success-strip { background: #e8f5e9; border: 1px solid #66bb6a; border-radius: 6px; padding: .5rem 1rem; color: #2e7d32; font-size: .9rem; margin-top: .5rem; text-align: center; font-weight: 600; }
     .error-strip   { background: #fdecea; border: 1px solid #e57373; border-radius: 6px; padding: .5rem 1rem; color: #b71c1c; font-size: .85rem; margin-top: .5rem; }

@@ -4,6 +4,23 @@
         <name>TolllgaFinale</name>
     </assembly>
     <members>
+        <member name="T:TolllgaFinale.Services.AndroidUsbPermissionService">
+            <summary>
+            Android USB permission helper that requests access to a device before printing.
+            The printer transport relies on this service to keep permission logic separate.
+            </summary>
+        </member>
+        <member name="T:TolllgaFinale.Services.AndroidUsbPrinterService">
+            <summary>
+            Android printer service that orchestrates PDF generation and USB delivery.
+            </summary>
+        </member>
+        <member name="T:TolllgaFinale.Services.AndroidUsbPrinterTransport">
+            <summary>
+            Android USB transport that sends raw print bytes to the printer through USB Host APIs.
+            Permission handling is delegated to <see cref="T:TolllgaFinale.Services.IUsbPermissionService"/>.
+            </summary>
+        </member>
         <member name="T:TolllgaFinale.Services.AuthService">
             <summary>
             Manages users, sessions, and role checks.
@@ -31,11 +48,96 @@
             Creates/updates the truck entry automatically.
             </summary>
         </member>
+        <member name="T:TolllgaFinale.Services.IInvoiceService">
+            <summary>
+            Service responsible for generating PDF tickets (invoices) from a WeightRecord.
+            - Keeps PDF creation independent from UI and printing logic.
+            - Saves PDFs in a local "Tickets" folder inside the app data directory.
+            </summary>
+        </member>
+        <member name="M:TolllgaFinale.Services.IInvoiceService.GeneratePdfAsync(TolllgaFinale.Models.WeightRecord)">
+            <summary>
+            Generates a PDF for the provided weight record and returns the full file path.
+            </summary>
+        </member>
+        <member name="M:TolllgaFinale.Services.InvoiceService.GeneratePdfAsync(TolllgaFinale.Models.WeightRecord)">
+            <summary>
+            Generates the PDF on a background thread and returns the saved path.
+            </summary>
+        </member>
+        <member name="T:TolllgaFinale.Services.InvoiceService.TicketDocument">
+            <summary>
+            Internal QuestPDF document implementation. Kept private so InvoiceService controls creation.
+            The document is organized into reusable sections for maintainability.
+            </summary>
+        </member>
         <member name="T:TolllgaFinale.Services.JsonSharingService">
             <summary>
             Reads the shared JSON file written by App 1.
             Security: file is optionally AES-256 encrypted — falls back to plain JSON.
             Decimal normalisation handles French locale comma separators.
+            </summary>
+        </member>
+        <member name="T:TolllgaFinale.Services.IPrinterCatalogService">
+            <summary>
+            Provides available printers for administration and a default printer fallback.
+            This keeps printer discovery separate from printing and PDF generation.
+            </summary>
+        </member>
+        <member name="T:TolllgaFinale.Services.IPrinterService">
+            <summary>
+            Abstraction for all printing operations used by the UI.
+            The UI should only talk to this interface, never to platform-specific code.
+            </summary>
+        </member>
+        <member name="T:TolllgaFinale.Services.IPrinterTransport">
+            <summary>
+            Low-level transport used to send print data to a configured device.
+            Platform-specific implementations handle USB, Bluetooth, or network I/O.
+            </summary>
+        </member>
+        <member name="T:TolllgaFinale.Services.IUsbPermissionService">
+            <summary>
+            Encapsulates platform-specific USB permission handling.
+            Android uses this to request access to a USB printer before sending data.
+            </summary>
+        </member>
+        <member name="T:TolllgaFinale.Services.PrinterConfiguration">
+            <summary>
+            Describes a saved printer configuration that can be reused for future print jobs.
+            </summary>
+        </member>
+        <member name="T:TolllgaFinale.Services.PrinterTransportKind">
+            <summary>
+            Identifies the transport used to reach the printer.
+            The model is intentionally extensible for future Bluetooth or network printers.
+            </summary>
+        </member>
+        <member name="T:TolllgaFinale.Services.PrinterServiceBase">
+            <summary>
+            Shared print workflow that stays independent from UI code and platform USB details.
+            It coordinates PDF generation, printer lookup, and transport execution.
+            </summary>
+        </member>
+        <member name="T:TolllgaFinale.Services.PrinterSettingsService">
+            <summary>
+            Persists and retrieves the printer selected by the administrator.
+            The selected printer is stored locally so future print jobs can reuse it automatically.
+            </summary>
+        </member>
+        <member name="T:TolllgaFinale.Services.PrintResult">
+            <summary>
+            Represents the outcome of a print operation.
+            </summary>
+        </member>
+        <member name="T:TolllgaFinale.Services.UnsupportedPrinterCatalogService">
+            <summary>
+            Fallback catalog for platforms where printer enumeration is not implemented yet.
+            </summary>
+        </member>
+        <member name="T:TolllgaFinale.Services.UnsupportedPrinterService">
+            <summary>
+            Fallback printer service for platforms that do not provide USB printing yet.
             </summary>
         </member>
         <member name="T:TolllgaFinale.Services.SecurityService">
