@@ -1,101 +1,87 @@
 @page "/parametres"
-@layout WeightSyncFinale.Components.Layout.MainLayout
 @using TolllgaFinale.Services
-@inject AuthService Auth
 @inject DatabaseService Db
-@inject PrinterSettingsService PrinterSettings
-@inject IPrinterCatalogService PrinterCatalog
 
 <div class="page-title">⚙ Paramètres</div>
 
 <div class="card-white">
-    <div class="param-section-title">Imprimante</div>
+    <div class="param-section-title">Base de données</div>
 
-    <div class="param-row" style="align-items:flex-start">
+    <div class="param-row">
         <div>
-            <div class="param-label">Imprimante actuellement configurée</div>
-            <div class="param-desc">
-                @if (!string.IsNullOrWhiteSpace(_configuredPrinterName))
-                {
-                    <strong>@_configuredPrinterName</strong>
-                }
-                else
-                {
-                    <span>Aucune imprimante enregistrée.</span>
-                }
-            </div>
+            <div class="param-label">Chemin de la base</div>
+            <div class="param-desc">@_dbPath</div>
         </div>
-        <button class="btn-gray" @onclick="RefreshPrintersAsync">↻ Actualiser</button>
     </div>
 
-    <div class="param-row" style="align-items:flex-end;gap:1rem;flex-wrap:wrap">
-        <div style="flex:1;min-width:260px">
-            <div class="param-label">Choisir une imprimante</div>
-            <select @bind="_selectedPrinterId" style="max-width:100%">
-                <option value="">-- Sélectionner --</option>
-                @foreach (var printer in _printers)
-                {
-                    <option value="@printer.PrinterId">@printer.DisplayName</option>
-                }
-            </select>
+    <div class="param-row">
+        <div>
+            <div class="param-label">Effacer tout l'historique</div>
+            <div class="param-desc">Supprime toutes les pesées. Les camions sont conservés.</div>
         </div>
-        <button class="btn-green" @onclick="SavePrinterAsync" disabled="@string.IsNullOrWhiteSpace(_selectedPrinterId)">💾 Enregistrer</button>
-        <button class="btn-gray" @onclick="ClearPrinterAsync">🧹 Effacer</button>
+        <button class="btn-red" @onclick="() => _confirmClear = true">🗑 Effacer</button>
     </div>
 
-    @if (!string.IsNullOrWhiteSpace(_printerMsg))
-    {
-        <div class="success-strip" style="margin-top:.8rem">✅ @_printerMsg</div>
-    }
+    <div class="param-row">
+        <div>
+            <div class="param-label">Réinitialiser la base complète</div>
+            <div class="param-desc">Supprime camions ET pesées. Action irréversible.</div>
+        </div>
+        <button class="btn-red" @onclick="() => _confirmReset = true">⚠ Réinitialiser</button>
+    </div>
 </div>
 
-@if (Auth.IsAdmin)
+<div class="card-white">
+    <div class="param-section-title">Intervalle de lecture (ms)</div>
+    <div class="param-row">
+        <div>
+            <div class="param-label">Fréquence de polling de la balance</div>
+            <div class="param-desc">Valeur actuelle : <strong>@_pollInterval ms</strong></div>
+        </div>
+        <div style="display:flex;gap:.5rem;align-items:center">
+            <input type="range" min="100" max="2000" step="100"
+                   value="@_pollInterval"
+                   @onchange="e => _pollInterval = int.Parse(e.Value!.ToString()!)"
+                   style="width:140px;accent-color:#2d5a27" />
+            <span style="min-width:50px;font-size:.85rem">@_pollInterval ms</span>
+        </div>
+    </div>
+</div>
+
+@if (_successMsg is not null)
 {
-    <div class="card-white">
-        <div class="param-section-title">Base de données</div>
+    <div class="success-strip">✅ @_successMsg</div>
+}
 
-        <div class="param-row">
-            <div>
-                <div class="param-label">Effacer tout l'historique</div>
-                <div class="param-desc">Supprime toutes les pesées. Les camions sont conservés.</div>
-            </div>
-            <button class="btn-red" @onclick="() => _confirmClear = true">🗑 Effacer</button>
-        </div>
-
-        <div class="param-row">
-            <div>
-                <div class="param-label">Réinitialiser la base complète</div>
-                <div class="param-desc">Supprime camions ET pesées. Action irréversible.</div>
-            </div>
-            <button class="btn-red" @onclick="() => _confirmReset = true">⚠ Réinitialiser</button>
-        </div>
-    </div>
-
-    <div class="card-white">
-        <div class="param-section-title">Intervalle de lecture (ms)</div>
-        <div class="param-row">
-            <div>
-                <div class="param-label">Fréquence de polling de la balance</div>
-                <div class="param-desc">Valeur actuelle : <strong>@_pollInterval ms</strong></div>
-            </div>
-            <div style="display:flex;gap:.5rem;align-items:center">
-                <input type="range" min="100" max="2000" step="100"
-                       value="@_pollInterval"
-                       @onchange="e => _pollInterval = int.Parse(e.Value!.ToString()!)"
-                       style="width:140px;accent-color:#2d5a27" />
-                <span style="min-width:50px;font-size:.85rem">@_pollInterval ms</span>
+@* ── Confirm dialogs ── *@
+@if (_confirmClear)
+{
+    <div class="dialog-overlay">
+        <div class="dialog">
+            <div class="dialog-title" style="color:#c0392b">Effacer l'historique ?</div>
+            <p>Toutes les pesées seront supprimées définitivement.</p>
+            <div class="dialog-actions">
+                <button class="btn-red"  @onclick="ClearHistoryAsync">Confirmer</button>
+                <button class="btn-gray" @onclick="() => _confirmClear = false">Annuler</button>
             </div>
         </div>
     </div>
-
-    <button class="btn-green" @onclick="OpenDbFolder">📂 Ouvrir dossier DB</button>
+}
+@if (_confirmReset)
+{
+    <div class="dialog-overlay">
+        <div class="dialog">
+            <div class="dialog-title" style="color:#c0392b">Réinitialisation complète ?</div>
+            <p>Tous les camions et toutes les pesées seront supprimés.</p>
+            <div class="dialog-actions">
+                <button class="btn-red"  @onclick="ResetAllAsync">Confirmer</button>
+                <button class="btn-gray" @onclick="() => _confirmReset = false">Annuler</button>
+            </div>
+        </div>
+    </div>
 }
 
 @code {
-    private readonly List<PrinterConfiguration> _printers = new();
-    private string _selectedPrinterId = "";
-    private string? _configuredPrinterName;
-    private string? _printerMsg;
     private string  _dbPath       = "";
     private int     _pollInterval = 300;
     private bool    _confirmClear = false;
@@ -106,59 +92,6 @@
     {
         await Db.InitAsync();
         _dbPath = Db.DbPath;
-        await RefreshPrintersAsync();
-    }
-
-    private async Task RefreshPrintersAsync()
-    {
-        _printerMsg = null;
-        _printers.Clear();
-        _printers.AddRange(await PrinterCatalog.GetAvailablePrintersAsync());
-
-        var current = await PrinterSettings.GetConfiguredPrinterAsync();
-        _configuredPrinterName = current?.DisplayName;
-        _selectedPrinterId = current?.PrinterId ?? string.Empty;
-
-        if (string.IsNullOrWhiteSpace(_selectedPrinterId))
-        {
-#if WINDOWS
-            var fallback = await PrinterCatalog.GetDefaultPrinterAsync();
-            if (fallback is not null)
-            {
-                _selectedPrinterId = fallback.PrinterId;
-                _configuredPrinterName = fallback.DisplayName;
-            }
-#endif
-        }
-
-        StateHasChanged();
-    }
-
-    private async Task SavePrinterAsync()
-    {
-        var selected = _printers.FirstOrDefault(p => p.PrinterId == _selectedPrinterId);
-        if (selected is null)
-            return;
-
-        await PrinterSettings.SaveConfiguredPrinterAsync(selected);
-        _configuredPrinterName = selected.DisplayName;
-        _printerMsg = $"Imprimante enregistrée : {selected.DisplayName}";
-        AutoHideSuccess();
-    }
-
-    private async Task ClearPrinterAsync()
-    {
-        await PrinterSettings.ClearConfiguredPrinterAsync();
-        _selectedPrinterId = string.Empty;
-        _configuredPrinterName = null;
-        _printerMsg = "Configuration d'imprimante effacée.";
-        AutoHideSuccess();
-    }
-
-    private void OpenDbFolder()
-    {
-        var folder = Path.GetDirectoryName(Db.DbPath)!;
-        System.Diagnostics.Process.Start("explorer.exe", folder);
     }
 
     private async Task ClearHistoryAsync()
@@ -182,45 +115,8 @@
         _ = Task.Delay(3000).ContinueWith(_ =>
         {
             _successMsg = null;
-            _printerMsg = null;
             InvokeAsync(StateHasChanged);
         });
-    }
-}
-
-@if (_successMsg is not null)
-{
-    <div class="success-strip">✅ @_successMsg</div>
-}
-
-@if (Auth.IsAdmin)
-{
-    @* ── Confirm dialogs ── *@
-    @if (_confirmClear)
-    {
-        <div class="dialog-overlay">
-            <div class="dialog">
-                <div class="dialog-title" style="color:#c0392b">Effacer l'historique ?</div>
-                <p>Toutes les pesées seront supprimées définitivement.</p>
-                <div class="dialog-actions">
-                    <button class="btn-red"  @onclick="ClearHistoryAsync">Confirmer</button>
-                    <button class="btn-gray" @onclick="() => _confirmClear = false">Annuler</button>
-                </div>
-            </div>
-        </div>
-    }
-    @if (_confirmReset)
-    {
-        <div class="dialog-overlay">
-            <div class="dialog">
-                <div class="dialog-title" style="color:#c0392b">Réinitialisation complète ?</div>
-                <p>Tous les camions et toutes les pesées seront supprimés.</p>
-                <div class="dialog-actions">
-                    <button class="btn-red"  @onclick="ResetAllAsync">Confirmer</button>
-                    <button class="btn-gray" @onclick="() => _confirmReset = false">Annuler</button>
-                </div>
-            </div>
-        </div>
     }
 }
 

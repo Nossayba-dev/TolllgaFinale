@@ -4,7 +4,6 @@
 @using TolllgaFinale.Models
 @inject JsonSharingService JsonService
 @inject DatabaseService    Db
-@inject IPrinterService    PrinterService
 @inject NavigationManager  Nav
 @implements IAsyncDisposable
 
@@ -195,13 +194,10 @@
                 disabled="@(!CanSave)">
             Enregistrer
         </button>
-        <button class="btn-imprimer" @onclick="EnregistrerAndPrintAsync" disabled="@(!CanSave)">Enregistrer &amp; Imprimer</button>
+        
     </div>
 
-    @if (!string.IsNullOrWhiteSpace(_lastPdfPath))
-    {
-        <div class="success-strip">✅ PDF généré : <code>@_lastPdfPath</code> — <button class="btn-link" @onclick="NavigateToTickets">Voir les tickets</button></div>
-    }
+    
 
     @if (_isPaused && (_poidsBrut.HasValue ^ _poidsTare.HasValue))
     {
@@ -513,101 +509,7 @@
         }
     }
 
-    private async Task EnregistrerAndPrintAsync()
-    {
-        if (!CanSave) return;
-        _error = null;
-        _saveSuccess = false;
-        _lastPdfPath = null;
-
-        if (!TryParseAmount(out var amount))
-        {
-            _error = "Amount invalide.";
-            return;
-        }
-
-        try
-        {
-            var product = NormalizeText(_product);
-            var observation = NormalizeText(_observation);
-            WeightRecord? savedRecord = null;
-
-            if (_pendingRecord is not null && _poidsBrut.HasValue && _poidsTare.HasValue)
-            {
-                await Db.CompleteWeightRecordAsync(
-                    _pendingRecord.Id,
-                    _poidsBrut.Value,
-                    _poidsTare.Value,
-                    string.IsNullOrWhiteSpace(_chauffeur) ? null : _chauffeur,
-                    product,
-                    observation,
-                    amount);
-
-                savedRecord = await Db.GetWeightRecordByIdAsync(_pendingRecord.Id);
-            }
-            else
-            {
-                var record = new WeightRecord
-                {
-                    Matricule   = _matricule,
-                    DriverName  = string.IsNullOrWhiteSpace(_chauffeur) ? null : _chauffeur,
-                    Product     = product,
-                    Observation = observation,
-                    Amount      = amount,
-                    GrossWeight = _poidsBrut ?? 0,
-                    Tare        = _poidsTare ?? 0,
-                    NetWeight   = (_poidsBrut ?? 0) - (_poidsTare ?? 0)
-                };
-
-                savedRecord = await Db.SaveWeightRecordAsync(record);
-            }
-
-            if (savedRecord is null)
-            {
-                _error = "La pesée a été enregistrée, mais le ticket n'a pas pu être préparé.";
-                return;
-            }
-
-            var printResult = await PrinterService.PrintWeightRecordAsync(savedRecord);
-            if (!printResult.Success)
-            {
-                _error = printResult.Message;
-                return;
-            }
-
-            _lastPdfPath = printResult.PdfPath;
-            _saveSuccess = true;
-
-            _ = Task.Delay(3000).ContinueWith(_ =>
-            {
-                _saveSuccess = false;
-                InvokeAsync(StateHasChanged);
-            });
-
-            // Reset form like EnregistrerAsync
-            _isPaused       = false;
-            _capturedWeight = null;
-            _poidsBrut      = null;
-            _poidsTare      = null;
-            _knownTruck     = null;
-            _pendingRecord  = null;
-            _dialog         = DialogKind.None;
-            _matricule      = "";
-            _chauffeur      = "";
-            _typePesee      = "brut";
-            ResetDraftFields();
-
-            StartTimers();
-
-            // Navigate to tickets view so user can see the generated file
-            Nav.NavigateTo("/tickets");
-        }
-        catch (Exception ex)
-        {
-            _error = ex.Message;
-            System.Diagnostics.Debug.WriteLine($"[SAVE & PRINT ERROR]: {ex}");
-        }
-    }
+    
 
     private void NavigateToTickets() => Nav.NavigateTo("/tickets");
 
