@@ -210,7 +210,7 @@ WHERE WeighingDate IS NOT NULL;");
     /// Fills the missing weight on an existing partial record and recalculates net.
     /// Also syncs the truck's tare if it changed.
     /// </summary>
-    public async Task CompleteWeightRecordAsync(
+    public async Task<WeightRecord?> CompleteWeightRecordAsync(
         int id,
         double grossWeight,
         double tare,
@@ -221,7 +221,7 @@ WHERE WeighingDate IS NOT NULL;");
     {
         await InitAsync();
         var record = await _db!.FindAsync<WeightRecord>(id);
-        if (record is null) return;
+        if (record is null) return null;
 
         var now = DateTime.UtcNow;
         var operatorName = GetCurrentOperatorName();
@@ -239,6 +239,8 @@ WHERE WeighingDate IS NOT NULL;");
         var truck = await GetTruckByMatriculeAsync(record.Matricule);
         if (truck is not null && tare > 0 && Math.Abs(truck.Tare - tare) > 0.001)
             await UpdateTruckTareAsync(truck.Id, tare);
+
+        return record;
     }
 
     public async Task UpdateWeightRecordAsync(WeightRecord record)

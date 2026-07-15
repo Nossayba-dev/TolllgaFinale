@@ -7,8 +7,6 @@ public static class MauiProgram
 {
     public static MauiApp CreateMauiApp()
     {
-       
-
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>()
@@ -21,7 +19,14 @@ public static class MauiProgram
         builder.Services.AddSingleton<JsonSharingService>();
         builder.Services.AddSingleton<DatabaseService>();
         builder.Services.AddSingleton<AuthService>();
+        builder.Services.AddSingleton<PrinterSettingsService>();
 
+#if WINDOWS
+        builder.Services.AddSingleton<IPrintService, WindowsPrintService>();
+#endif
+#if ANDROID
+        builder.Services.AddSingleton<IPrintService, AndroidStandardPrintService>();
+#endif
 
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();

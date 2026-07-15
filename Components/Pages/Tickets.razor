@@ -1,0 +1,113 @@
+﻿@page "/tickets"
+@using TolllgaFinale.Models
+@using TolllgaFinale.Services
+@inject DatabaseService Db
+@inject IPrintService PrintService
+@inject PrinterSettingsService PrinterSettings
+
+<div class="page-title">🧾 Tickets</div>
+
+<div class="card-white">
+    <div class="form-row" style="margin-bottom:1rem;gap:1rem;display:flex;flex-wrap:wrap">
+        <input type="text" placeholder="Filtrer par matricule..." @bind="_filter" @bind:event="oninput" style="max-width:260px" />
+    </div>
+
+    @if (_loading)
+    {
+        <p>Chargement...</p>
+    }
+    else if (FilteredRecords.Count == 0)
+    {
+        <p style="color:#888">Aucun ticket trouvé.</p>
+    }
+    else
+    {
+        <table class="tbl">
+            <thead>
+                <tr>
+                    <th>N°</th>
+                    <th>Matricule</th>
+                    <th>Chauffeur</th>
+                    <th>Produit</th>
+                    <th>Brut (kg)</th>
+                    <th>Tare (kg)</th>
+                    <th>Net (kg)</th>
+                    <th>Date</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var r in FilteredRecords)
+                {
+                    <tr>
+                        <td class="bold">@r.Id</td>
+                        <td>@r.Matricule</td>
+                        <td>@(r.DriverName ?? "-")</td>
+                        <td>@(r.Product ?? "-")</td>
+                        <td>@r.GrossWeight.ToString("0.000")</td>
+                        <td>@r.Tare.ToString("0.000")</td>
+                        <td class="green">@r.NetWeight.ToString("0.000")</td>
+                        <td>@r.GetLatestWeighingDate().ToString("dd/MM/yyyy HH:mm")</td>
+                        <td>
+                            <button class="btn-green" @onclick="() => ReprintAsync(r)">🖨 Réimprimer</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    @if (_error is not null)
+    {
+        <div class="error-strip">⚠ @_error</div>
+    }
+    @if (_successMsg is not null)
+    {
+        <div class="success-strip">✅ @_successMsg</div>
+    }
+</div>
+
+@code {
+    private List<WeightRecord> _records = new();
+    private string _filter = "";
+    private bool _loading = true;
+    private string? _error;
+    private string? _successMsg;
+
+    private List<WeightRecord> FilteredRecords =>
+        string.IsNullOrWhiteSpace(_filter)
+            ? _records
+            : _records.Where(r => r.Matricule.Contains(_filter, StringComparison.OrdinalIgnoreCase)).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _records = await Db.GetAllWeightsAsync();
+        _loading = false;
+    }
+
+    private async Task ReprintAsync(WeightRecord r)
+    {
+        _error = null;
+        _successMsg = null;
+        var ticket = TicketData.FromRecord(r);
+        var printerName = PrinterSettings.GetDefaultPrinter();
+        var ok = await PrintService.PrintTicketAsync(ticket, printerName);
+
+        if (ok) { _successMsg = "Ticket réimprimé."; AutoHide(); }
+        else { _error = "Échec de l'impression — vérifiez l'imprimante."; }
+    }
+
+    private void AutoHide()
+    {
+        _ = Task.Delay(3000).ContinueWith(_ =>
+        {
+            _successMsg = null;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+}
+
+<style>
+    .error-strip   { background: #fdecea; border: 1px solid #e57373; border-radius: 8px; padding: .6rem 1.2rem; color: #b71c1c; font-size: .9rem; margin-top: .8rem; }
+    .success-strip { background: #e8f5e9; border: 1px solid #66bb6a; border-radius: 8px; padding: .6rem 1.2rem; color: #2e7d32; font-size: .9rem; margin-top: .8rem; }
+</style>

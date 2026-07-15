@@ -1,59 +1,114 @@
 @page "/parametres"
 @using TolllgaFinale.Services
 @inject DatabaseService Db
+@inject AuthService Auth
+@inject IPrintService PrintService
+@inject PrinterSettingsService PrinterSettings
 
 <div class="page-title">⚙ Paramètres</div>
 
+@* ══ IMPRESSION — visible pour admin ET opérateur ══ *@
 <div class="card-white">
-    <div class="param-section-title">Base de données</div>
+    <div class="param-section-title">🖨 Impression</div>
 
     <div class="param-row">
         <div>
-            <div class="param-label">Chemin de la base</div>
-            <div class="param-desc">@_dbPath</div>
+            <div class="param-label">Imprimante par défaut</div>
+            <div class="param-desc">Utilisée pour "Enregistrer et Imprimer" et les réimpressions depuis Tickets.</div>
         </div>
+        @if (_printers.Count > 0)
+        {
+            <div style="display:flex;gap:.5rem;align-items:center">
+                <select @bind="_selectedPrinter" style="min-width:220px">
+                    <option value="">-- Choisir une imprimante --</option>
+                    @foreach (var p in _printers)
+                    {
+                        <option value="@p">@p</option>
+                    }
+                </select>
+                <button class="btn-green" @onclick="SavePrinter">Enregistrer</button>
+            </div>
+        }
+        else
+        {
+            <div class="param-desc" style="text-align:right;max-width:260px">
+                Le sélecteur d'imprimante s'affiche automatiquement à chaque impression sur cet appareil.
+            </div>
+        }
     </div>
 
     <div class="param-row">
         <div>
-            <div class="param-label">Effacer tout l'historique</div>
-            <div class="param-desc">Supprime toutes les pesées. Les camions sont conservés.</div>
+            <div class="param-label">Test d'impression</div>
+            <div class="param-desc">Imprime un ticket de test sur l'imprimante sélectionnée.</div>
         </div>
-        <button class="btn-red" @onclick="() => _confirmClear = true">🗑 Effacer</button>
-    </div>
-
-    <div class="param-row">
-        <div>
-            <div class="param-label">Réinitialiser la base complète</div>
-            <div class="param-desc">Supprime camions ET pesées. Action irréversible.</div>
-        </div>
-        <button class="btn-red" @onclick="() => _confirmReset = true">⚠ Réinitialiser</button>
+        <button class="btn-gray" @onclick="TestPrintAsync">Imprimer un test</button>
     </div>
 </div>
 
-<div class="card-white">
-    <div class="param-section-title">Intervalle de lecture (ms)</div>
-    <div class="param-row">
-        <div>
-            <div class="param-label">Fréquence de polling de la balance</div>
-            <div class="param-desc">Valeur actuelle : <strong>@_pollInterval ms</strong></div>
-        </div>
-        <div style="display:flex;gap:.5rem;align-items:center">
-            <input type="range" min="100" max="2000" step="100"
-                   value="@_pollInterval"
-                   @onchange="e => _pollInterval = int.Parse(e.Value!.ToString()!)"
-                   style="width:140px;accent-color:#2d5a27" />
-            <span style="min-width:50px;font-size:.85rem">@_pollInterval ms</span>
-        </div>
-    </div>
-</div>
-
-@if (_successMsg is not null)
+@if (_printerMsg is not null)
 {
-    <div class="success-strip">✅ @_successMsg</div>
+    <div class="success-strip">✅ @_printerMsg</div>
+}
+@if (_printerError is not null)
+{
+    <div class="error-strip">⚠ @_printerError</div>
 }
 
-@* ── Confirm dialogs ── *@
+@* ══ BASE DE DONNÉES — admin uniquement ══ *@
+@if (Auth.IsAdmin)
+{
+    <div class="card-white">
+        <div class="param-section-title">Base de données</div>
+
+        <div class="param-row">
+            <div>
+                <div class="param-label">Chemin de la base</div>
+                <div class="param-desc">@_dbPath</div>
+            </div>
+        </div>
+
+        <div class="param-row">
+            <div>
+                <div class="param-label">Effacer tout l'historique</div>
+                <div class="param-desc">Supprime toutes les pesées. Les camions sont conservés.</div>
+            </div>
+            <button class="btn-red" @onclick="() => _confirmClear = true">🗑 Effacer</button>
+        </div>
+
+        <div class="param-row">
+            <div>
+                <div class="param-label">Réinitialiser la base complète</div>
+                <div class="param-desc">Supprime camions ET pesées. Action irréversible.</div>
+            </div>
+            <button class="btn-red" @onclick="() => _confirmReset = true">⚠ Réinitialiser</button>
+        </div>
+    </div>
+
+    <div class="card-white">
+        <div class="param-section-title">Intervalle de lecture (ms)</div>
+        <div class="param-row">
+            <div>
+                <div class="param-label">Fréquence de polling de la balance</div>
+                <div class="param-desc">Valeur actuelle : <strong>@_pollInterval ms</strong></div>
+            </div>
+            <div style="display:flex;gap:.5rem;align-items:center">
+                <input type="range" min="100" max="2000" step="100"
+                       value="@_pollInterval"
+                       @onchange="e => _pollInterval = int.Parse(e.Value!.ToString()!)"
+                       style="width:140px;accent-color:#2d5a27" />
+                <span style="min-width:50px;font-size:.85rem">@_pollInterval ms</span>
+            </div>
+        </div>
+    </div>
+
+    @if (_successMsg is not null)
+    {
+        <div class="success-strip">✅ @_successMsg</div>
+    }
+}
+
+@* ── Confirm dialogs (admin only actions) ── *@
 @if (_confirmClear)
 {
     <div class="dialog-overlay">
@@ -61,7 +116,7 @@
             <div class="dialog-title" style="color:#c0392b">Effacer l'historique ?</div>
             <p>Toutes les pesées seront supprimées définitivement.</p>
             <div class="dialog-actions">
-                <button class="btn-red"  @onclick="ClearHistoryAsync">Confirmer</button>
+                <button class="btn-red" @onclick="ClearHistoryAsync">Confirmer</button>
                 <button class="btn-gray" @onclick="() => _confirmClear = false">Annuler</button>
             </div>
         </div>
@@ -74,7 +129,7 @@
             <div class="dialog-title" style="color:#c0392b">Réinitialisation complète ?</div>
             <p>Tous les camions et toutes les pesées seront supprimés.</p>
             <div class="dialog-actions">
-                <button class="btn-red"  @onclick="ResetAllAsync">Confirmer</button>
+                <button class="btn-red" @onclick="ResetAllAsync">Confirmer</button>
                 <button class="btn-gray" @onclick="() => _confirmReset = false">Annuler</button>
             </div>
         </div>
@@ -82,18 +137,74 @@
 }
 
 @code {
-    private string  _dbPath       = "";
-    private int     _pollInterval = 300;
-    private bool    _confirmClear = false;
-    private bool    _confirmReset = false;
+    // ── DB (admin) ──
+    private string _dbPath = "";
+    private int _pollInterval = 300;
+    private bool _confirmClear = false;
+    private bool _confirmReset = false;
     private string? _successMsg;
+
+    // ── Printer (admin + opérateur) ──
+    private List<string> _printers = new();
+    private string _selectedPrinter = "";
+    private string? _printerMsg;
+    private string? _printerError;
 
     protected override async Task OnInitializedAsync()
     {
-        await Db.InitAsync();
-        _dbPath = Db.DbPath;
+        if (Auth.IsAdmin)
+        {
+            await Db.InitAsync();
+            _dbPath = Db.DbPath;
+        }
+
+        _printers = PrintService.GetInstalledPrinters();
+        _selectedPrinter = PrinterSettings.GetDefaultPrinter() ?? "";
     }
 
+    private void SavePrinter()
+    {
+        _printerError = null;
+        if (string.IsNullOrWhiteSpace(_selectedPrinter))
+        {
+            _printerError = "Veuillez choisir une imprimante.";
+            return;
+        }
+        PrinterSettings.SetDefaultPrinter(_selectedPrinter);
+        _printerMsg = "Imprimante enregistrée.";
+        AutoHidePrinterMsg();
+    }
+
+    private async Task TestPrintAsync()
+    {
+        _printerError = null;
+        var ticket = new TolllgaFinale.Models.TicketData
+        {
+            RecordId = 0,
+            Matricule = "TEST-000",
+            DriverName = "Test",
+            Product = "Test d'impression",
+            GrossWeight = 0,
+            Tare = 0,
+            WeighingDateGross = DateTime.Now,
+            WeighingDateTare = DateTime.Now,
+            OperatorGross = Auth.CurrentUserLabel
+        };
+        var ok = await PrintService.PrintTicketAsync(ticket, string.IsNullOrWhiteSpace(_selectedPrinter) ? null : _selectedPrinter);
+        if (ok) { _printerMsg = "Test envoyé à l'imprimante."; AutoHidePrinterMsg(); }
+        else { _printerError = "Échec de l'impression test."; }
+    }
+
+    private void AutoHidePrinterMsg()
+    {
+        _ = Task.Delay(3000).ContinueWith(_ =>
+        {
+            _printerMsg = null;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    // ── DB actions (admin only — unreachable from UI for opérateur) ──
     private async Task ClearHistoryAsync()
     {
         _confirmClear = false;
@@ -122,33 +233,95 @@
 
 <style>
     .param-section-title {
-        font-weight: 700; font-size: .95rem; color: #1e3d1a;
-        margin-bottom: 1rem; padding-bottom: .5rem;
+        font-weight: 700;
+        font-size: .95rem;
+        color: #1e3d1a;
+        margin-bottom: 1rem;
+        padding-bottom: .5rem;
         border-bottom: 1px solid #eee;
     }
+
     .param-row {
-        display: flex; justify-content: space-between; align-items: center;
-        padding: .8rem 0; border-bottom: 1px solid #f5f5f5;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: .8rem 0;
+        border-bottom: 1px solid #f5f5f5;
         gap: 1rem;
     }
-    .param-row:last-child { border-bottom: none; }
-    .param-label { font-weight: 600; font-size: .9rem; color: #222; margin-bottom: .2rem; }
-    .param-desc  { font-size: .8rem; color: #888; word-break: break-all; }
+
+        .param-row:last-child {
+            border-bottom: none;
+        }
+
+    .param-label {
+        font-weight: 600;
+        font-size: .9rem;
+        color: #222;
+        margin-bottom: .2rem;
+    }
+
+    .param-desc {
+        font-size: .8rem;
+        color: #888;
+        word-break: break-all;
+    }
 
     .success-strip {
-        background: #e8f5e9; border: 1px solid #66bb6a; border-radius: 8px;
-        padding: .6rem 1.2rem; color: #2e7d32; font-size: .9rem; margin-top: .5rem;
+        background: #e8f5e9;
+        border: 1px solid #66bb6a;
+        border-radius: 8px;
+        padding: .6rem 1.2rem;
+        color: #2e7d32;
+        font-size: .9rem;
+        margin-top: .5rem;
+    }
+
+    .error-strip {
+        background: #fdecea;
+        border: 1px solid #e57373;
+        border-radius: 8px;
+        padding: .6rem 1.2rem;
+        color: #b71c1c;
+        font-size: .9rem;
+        margin-top: .5rem;
     }
 
     .dialog-overlay {
-        position: fixed; inset: 0; background: rgba(0,0,0,.45);
-        display: flex; align-items: center; justify-content: center; z-index: 1000;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,.45);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
     }
+
     .dialog {
-        background: #fff; border-radius: 12px; padding: 2rem 1.8rem;
-        max-width: 360px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,.2); text-align: center;
+        background: #fff;
+        border-radius: 12px;
+        padding: 2rem 1.8rem;
+        max-width: 360px;
+        width: 90%;
+        box-shadow: 0 8px 32px rgba(0,0,0,.2);
+        text-align: center;
     }
-    .dialog-title { font-size: 1.1rem; font-weight: 700; margin-bottom: .8rem; }
-    .dialog p { font-size: .9rem; color: #333; margin-bottom: 1rem; }
-    .dialog-actions { display: flex; gap: .6rem; justify-content: center; }
+
+    .dialog-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-bottom: .8rem;
+    }
+
+    .dialog p {
+        font-size: .9rem;
+        color: #333;
+        margin-bottom: 1rem;
+    }
+
+    .dialog-actions {
+        display: flex;
+        gap: .6rem;
+        justify-content: center;
+    }
 </style>

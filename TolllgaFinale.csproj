@@ -5,15 +5,15 @@
         <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net9.0-windows10.0.19041.0</TargetFrameworks>
 
         <OutputType>Exe</OutputType>
-        <RootNamespace>WeightSyncFinale</RootNamespace>
+        <RootNamespace>TolllgaFinale</RootNamespace>
         <UseMaui>true</UseMaui>
         <SingleProject>true</SingleProject>
         <ImplicitUsings>enable</ImplicitUsings>
         <EnableDefaultCssItems>false</EnableDefaultCssItems>
         <Nullable>enable</Nullable>
 
-        <ApplicationTitle>WeightSyncFinale</ApplicationTitle>
-        <ApplicationId>com.companyname.weightsyncfinale</ApplicationId>
+        <ApplicationTitle>TolllgaFinale</ApplicationTitle>
+        <ApplicationId>com.companyname.TolllgaFinale</ApplicationId>
         <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
         <ApplicationVersion>1</ApplicationVersion>
 
@@ -25,6 +25,10 @@
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
         <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
     </PropertyGroup>
+    <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
+    <PackageReference Include="System.Drawing.Common" Version="9.0.0" />
+  </ItemGroup>
+    
 
     <ItemGroup>
         <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
@@ -60,15 +64,13 @@
                           and includes a native binary for Windows/Linux.
         -->
         <PackageReference Include="SQLitePCLRaw.bundle_sqlcipher" Version="1.1.14" />
+        <PackageReference Include="System.Drawing.Common" Version="10.0.9" />
+        <PackageReference Include="System.Windows.Extensions" Version="10.0.9" />
     </ItemGroup>
 
     <!-- System.IO.Ports: Windows ONLY — crashes Android if included globally -->
     <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
         <PackageReference Include="System.IO.Ports" Version="10.0.8" />
-    </ItemGroup>
-    <ItemGroup>
-      <Folder Include="Platforms\Android\Services\" />
-      <Folder Include="Platforms\Windows\Services\" />
     </ItemGroup>
 
 </Project>

@@ -5,36 +5,11 @@
 @inject JsonSharingService JsonService
 @inject DatabaseService    Db
 @inject NavigationManager  Nav
+@inject IPrintService PrintService
+@inject PrinterSettingsService PrinterSettings
 @implements IAsyncDisposable
 
 <div class="page">
-
-    @* ══ SCALE CONNECTION GUARD ════════════════════════════════════════════ *@
-    @if (!_scaleConnected)
-    {
-        <div class="offline-banner">
-            <div class="offline-icon">📡</div>
-            <div class="offline-title">Balance non connectée</div>
-            <div class="offline-desc">
-                @(_offlineReason ?? "App 1 n'est pas en cours d'exécution.")<br />
-                <small>Chemin surveillé : <code>@JsonService.FilePath</code></small>
-            </div>
-            @if (_rawJsonDebug is not null)
-            {
-                <details class="debug-details">
-                    <summary>🔍 Contenu brut du fichier</summary>
-                    <pre class="debug-pre">@_rawJsonDebug</pre>
-                </details>
-            }
-            <div class="offline-dot-row">
-                <span class="dot @(_dotFrame == 0 ? "dot-on" : "")"></span>
-                <span class="dot @(_dotFrame == 1 ? "dot-on" : "")"></span>
-                <span class="dot @(_dotFrame == 2 ? "dot-on" : "")"></span>
-            </div>
-        </div>
-    }
-    else
-    {
 
     @* ══ LIVE WEIGHT BANNER ══════════════════════════════════════════════════ *@
     <div class="weight-banner @(_flash ? "flash" : "")">
@@ -189,11 +164,15 @@
 
     @* ══ ACTIONS ════════════════════════════════════════════════════════════ *@
     <div class="actions-row">
-        <button class="btn-annuler"     @onclick="Annuler">Annuler</button>
-        <button class="btn-enregistrer" @onclick="EnregistrerAsync"
-                disabled="@(!CanSave)">
-            Enregistrer
-        </button>
+            <button class="btn-annuler" @onclick="Annuler">Annuler</button>
+            <button class="btn-enregistrer" @onclick="EnregistrerAsync"
+                    disabled="@(!CanSave)">
+                Enregistrer
+            </button>
+            <button class="btn-imprimer" @onclick="SaveAndPrintAsync"
+                    disabled="@(!CanSave)">
+                💾🖨 Enregistrer et Imprimer
+            </button>
         
     </div>
 
@@ -216,8 +195,6 @@
         <div class="error-strip">⚠ @_error</div>
     }
 
-    } @* end @if (_scaleConnected) *@
-
 </div>
 
 @code {
@@ -225,10 +202,6 @@
     private WeightData? _liveData;
     private string?     _error;
     private bool        _flash;
-    private bool        _scaleConnected = false;
-    private string?     _offlineReason  = null;
-    private int         _dotFrame       = 0;
-    private string?     _rawJsonDebug   = null;
 
     // ── Pause / capture ───────────────────────────────────────────────────────
     private bool    _isPaused       = false;
@@ -322,7 +295,7 @@
     {
         if (!_isPaused)
         {
-            if (!_scaleConnected || _liveData is null) return;
+            if (_liveData is null) return;
 
             // ── PAUSE: freeze weight immediately ──────────────────────────────
             var captured = _liveData.Weight;   // snapshot before stopping timers
@@ -432,28 +405,27 @@
     // ══════════════════════════════════════════════════════════════════════════
     // SAVE
     // ══════════════════════════════════════════════════════════════════════════
-    private async Task EnregistrerAsync()
+    private async Task<WeightRecord?> SaveRecordAsync()
     {
-        if (!CanSave) return;
-        _error       = null;
+        if (!CanSave) return null;
+        _error = null;
         _saveSuccess = false;
 
         if (!TryParseAmount(out var amount))
         {
             _error = "Amount invalide.";
-            return;
+            return null;
         }
-
-        System.Diagnostics.Debug.WriteLine($"[SAVE] poidsBrut={_poidsBrut} poidsTare={_poidsTare} amount={amount}");
 
         try
         {
             var product = NormalizeText(_product);
             var observation = NormalizeText(_observation);
+            WeightRecord? saved;
 
             if (_pendingRecord is not null && _poidsBrut.HasValue && _poidsTare.HasValue)
             {
-                await Db.CompleteWeightRecordAsync(
+                saved = await Db.CompleteWeightRecordAsync(
                     _pendingRecord.Id,
                     _poidsBrut.Value,
                     _poidsTare.Value,
@@ -466,49 +438,64 @@
             {
                 var record = new WeightRecord
                 {
-                    Matricule   = _matricule,
-                    DriverName  = string.IsNullOrWhiteSpace(_chauffeur) ? null : _chauffeur,
-                    Product     = product,
+                    Matricule = _matricule,
+                    DriverName = string.IsNullOrWhiteSpace(_chauffeur) ? null : _chauffeur,
+                    Product = product,
                     Observation = observation,
-                    Amount      = amount,
+                    Amount = amount,
                     GrossWeight = _poidsBrut ?? 0,
-                    Tare        = _poidsTare ?? 0,
-                    NetWeight   = (_poidsBrut ?? 0) - (_poidsTare ?? 0)
+                    Tare = _poidsTare ?? 0,
+                    NetWeight = (_poidsBrut ?? 0) - (_poidsTare ?? 0)
                 };
-                System.Diagnostics.Debug.WriteLine($"[SAVE] inserting GrossWeight={record.GrossWeight} Tare={record.Tare} Net={record.NetWeight} Amount={record.Amount}");
-                await Db.SaveWeightRecordAsync(record);
+                saved = await Db.SaveWeightRecordAsync(record);
             }
 
             _saveSuccess = true;
-
             _ = Task.Delay(3000).ContinueWith(_ =>
             {
                 _saveSuccess = false;
                 InvokeAsync(StateHasChanged);
             });
 
-            // Reset form like EnregistrerAsync
-            _isPaused       = false;
-            _capturedWeight = null;
-            _poidsBrut      = null;
-            _poidsTare      = null;
-            _knownTruck     = null;
-            _pendingRecord  = null;
-            _dialog         = DialogKind.None;
-            _matricule      = "";
-            _chauffeur      = "";
-            _typePesee      = "brut";
-            ResetDraftFields();
-
-            StartTimers();
+            ResetFormAfterSave();
+            return saved;
         }
         catch (Exception ex)
         {
             _error = ex.Message;
             System.Diagnostics.Debug.WriteLine($"[SAVE ERROR]: {ex}");
+            return null;
         }
     }
 
+    private async Task EnregistrerAsync() => await SaveRecordAsync();
+
+    private async Task SaveAndPrintAsync()
+    {
+        var saved = await SaveRecordAsync();
+        if (saved is null) return;
+
+        var ticket = TicketData.FromRecord(saved);
+        var printerName = PrinterSettings.GetDefaultPrinter();
+        var ok = await PrintService.PrintTicketAsync(ticket, printerName);
+        if (!ok) _error = "Impression échouée — vérifiez qu'une imprimante est configurée.";
+    }
+
+    private void ResetFormAfterSave()
+    {
+        _isPaused = false;
+        _capturedWeight = null;
+        _poidsBrut = null;
+        _poidsTare = null;
+        _knownTruck = null;
+        _pendingRecord = null;
+        _dialog = DialogKind.None;
+        _matricule = "";
+        _chauffeur = "";
+        _typePesee = "brut";
+        ResetDraftFields();
+        StartTimers();
+    }
     
 
     private void NavigateToTickets() => Nav.NavigateTo("/tickets");
@@ -590,29 +577,14 @@
         try
         {
             var prev = _liveData?.Weight;
-            _rawJsonDebug = await JsonService.ReadRawAsync();
             var data = await JsonService.ReadWeightAsync();
 
-            if (data is null)
+            // Lecture directe : si le fichier n'existe pas encore ou n'est pas
+            // lisible, on garde simplement la dernière valeur connue (ou 0 au
+            // départ). Aucune vérification de l'état de l'App 1.
+            if (data is not null)
             {
-                _scaleConnected = false;
-                _offlineReason  = "Fichier introuvable — App 1 n'est pas démarrée.";
-            }
-            else if (data.IsConnected == false && _rawJsonDebug?.Contains("IsConnected") == true)
-            {
-                var stoppedAgo  = DateTime.UtcNow - data.UpdatedAt;
-                _scaleConnected = false;
-                _offlineReason  = data.StopTime.HasValue
-                    ? $"App 1 arrêtée à {data.StopTime.Value.ToLocalTime():HH:mm:ss} (il y a {(int)stoppedAgo.TotalSeconds}s)."
-                    : "App 1 est déconnectée.";
-            }
-            else
-            {
-                _scaleConnected = true;
-                _offlineReason  = null;
-                _rawJsonDebug   = null;
-                _liveData       = data;
-                _error          = null;
+                _liveData = data;
 
                 if (_liveData.Weight != prev)
                 {
@@ -624,15 +596,10 @@
                     });
                 }
             }
-
-            if (!_scaleConnected)
-                _dotFrame = (_dotFrame + 1) % 3;
         }
-        catch (Exception ex)
+        catch
         {
-            _scaleConnected = false;
-            _offlineReason  = $"Erreur de lecture : {ex.Message}";
-            _dotFrame       = (_dotFrame + 1) % 3;
+            // Lecture silencieuse : on ignore l'erreur et on retente au prochain tick.
         }
     }
 
@@ -654,20 +621,6 @@
         max-width: 780px; margin: 0 auto; padding: 1rem;
         font-family: 'Segoe UI', sans-serif; background: #f0f0f0; min-height: 100vh;
     }
-
-    .offline-banner {
-        background: #fff; border: 2px dashed #e0e0e0; border-radius: 14px;
-        padding: 2.5rem 2rem; text-align: center; margin-bottom: 1rem;
-        animation: fade-in .4s ease;
-    }
-    @@keyframes fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; } }
-    .offline-icon  { font-size: 2.8rem; margin-bottom: .6rem; }
-    .offline-title { font-size: 1.3rem; font-weight: 700; color: #c0392b; margin-bottom: .5rem; }
-    .offline-desc  { font-size: .88rem; color: #666; line-height: 1.6; margin-bottom: 1.2rem; }
-    .offline-desc code { background: #f5f5f5; border-radius: 4px; padding: .1rem .4rem; font-size: .78rem; word-break: break-all; color: #555; }
-    .offline-dot-row { display: flex; justify-content: center; gap: .6rem; }
-    .dot { width: 10px; height: 10px; border-radius: 50%; background: #ddd; transition: background .3s; }
-    .dot.dot-on { background: #c0392b; }
 
     .weight-banner {
         background: #fff; border-radius: 10px; text-align: center;
@@ -746,8 +699,4 @@
 
     .success-strip { background: #e8f5e9; border: 1px solid #66bb6a; border-radius: 6px; padding: .5rem 1rem; color: #2e7d32; font-size: .9rem; margin-top: .5rem; text-align: center; font-weight: 600; }
     .error-strip   { background: #fdecea; border: 1px solid #e57373; border-radius: 6px; padding: .5rem 1rem; color: #b71c1c; font-size: .85rem; margin-top: .5rem; }
-
-    .debug-details { margin-top: .8rem; text-align: left; background: #1a1a1a; border-radius: 6px; padding: .5rem .8rem; }
-    .debug-details summary { color: #aaa; font-size: .78rem; cursor: pointer; user-select: none; }
-    .debug-pre { color: #80cbc4; font-size: .72rem; white-space: pre-wrap; word-break: break-all; margin-top: .5rem; max-height: 200px; overflow-y: auto; }
 </style>
