@@ -37,44 +37,8 @@
         <member name="M:TolllgaFinale.Services.IPrintService.GetInstalledPrinters">
             <summary>Liste des imprimantes installées (pour un menu déroulant côté UI).</summary>
         </member>
-        <member name="T:TolllgaFinale.Services.JsonSharingService">
-            <summary>
-            Reads the shared JSON file written by App 1.
-            Security: file is optionally AES-256 encrypted — falls back to plain JSON.
-            Decimal normalisation handles French locale comma separators.
-            </summary>
-        </member>
         <member name="T:TolllgaFinale.Services.PrinterSettingsService">
             <summary>Stocke l'imprimante par défaut choisie par l'utilisateur (persisté sur l'appareil).</summary>
-        </member>
-        <member name="T:TolllgaFinale.Services.SecurityService">
-             <summary>
-             MUST be placed in:  Services/SecurityService.cs
-             Namespace:          TolllgaFinale.Services
-            
-             Provides: PBKDF2 password hashing, AES-256 encryption, SecureStorage key management.
-             </summary>
-        </member>
-        <member name="M:TolllgaFinale.Services.SecurityService.HashPassword(System.String)">
-            <summary>Hash with PBKDF2-SHA256 + random salt. Returns "base64salt:base64hash".</summary>
-        </member>
-        <member name="M:TolllgaFinale.Services.SecurityService.VerifyPassword(System.String,System.String)">
-            <summary>
-            Verify a password against a stored hash.
-            Accepts both PBKDF2 ("salt:hash") and legacy SHA-256 (plain hex).
-            </summary>
-        </member>
-        <member name="M:TolllgaFinale.Services.SecurityService.Encrypt(System.String,System.Byte[])">
-            <summary>AES-256-CBC encrypt. Output: Base64(IV[16] + ciphertext).</summary>
-        </member>
-        <member name="M:TolllgaFinale.Services.SecurityService.Decrypt(System.String,System.Byte[])">
-            <summary>AES-256-CBC decrypt. Input must come from <see cref="M:TolllgaFinale.Services.SecurityService.Encrypt(System.String,System.Byte[])"/>.</summary>
-        </member>
-        <member name="M:TolllgaFinale.Services.SecurityService.GetOrCreateJsonKeyAsync">
-            <summary>Get or generate the 256-bit JSON encryption key from SecureStorage.</summary>
-        </member>
-        <member name="M:TolllgaFinale.Services.SecurityService.GetOrCreateDbKeyAsync">
-            <summary>Get or generate the 256-bit database key from SecureStorage.</summary>
         </member>
         <member name="T:TolllgaFinale.Resource">
             <summary>
