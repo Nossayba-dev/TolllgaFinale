@@ -1,0 +1,102 @@
+@using TolllgaFinale.Models
+@using TolllgaFinale.Services
+@inject IPrintService PrintService
+
+@if (IsOpen)
+{
+    <div class="dialog-overlay">
+        <div class="dialog">
+            <div class="dialog-title">🖨 Imprimer le ticket</div>
+            <p>Imprimante : <strong>@(PrinterName ?? "imprimante par défaut du système")</strong></p>
+
+            <div class="po-copies">
+                <label for="po-copies-input">Nombre de copies</label>
+                <input id="po-copies-input" type="number" min="1" max="20"
+                       value="@Copies"
+                       @onchange="OnCopiesChanged"
+                       disabled="@_printing" />
+            </div>
+
+            @if (_error is not null)
+            {
+                <div class="error-strip">⚠ @_error</div>
+            }
+
+            <div class="dialog-actions">
+                <button class="btn-d-green" @onclick="ConfirmAsync" disabled="@_printing">
+                    @(_printing ? "Impression..." : "🖨 Imprimer")
+                </button>
+                <button class="btn-d-cancel" @onclick="CancelAsync" disabled="@_printing">Annuler</button>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .po-copies { display: flex; flex-direction: column; gap: .3rem; margin: 1rem 0; text-align: left; }
+    .po-copies label { font-size: .85rem; color: #333; }
+    .po-copies input { border: 1px solid #ccc; border-radius: 6px; padding: .5rem .7rem; font-size: 1.05rem; text-align: center; }
+</style>
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+    [Parameter] public TicketData? Ticket { get; set; }
+    [Parameter] public string? PrinterName { get; set; }
+    [Parameter] public EventCallback OnPrinted { get; set; }
+
+    private int Copies { get; set; } = 1;
+    private bool _printing;
+    private string? _error;
+    private bool _wasOpen;
+
+    protected override void OnParametersSet()
+    {
+        // Ne réinitialiser qu'à l'ouverture (transition false → true), pas à chaque re-rendu du
+        // parent (ex. l'horloge de Home.razor qui déclenche StateHasChanged chaque seconde),
+        // sinon la valeur saisie par l'utilisateur serait effacée pendant qu'il la modifie.
+        if (IsOpen && !_wasOpen)
+        {
+            Copies = 1;
+            _error = null;
+        }
+        _wasOpen = IsOpen;
+    }
+
+    private void OnCopiesChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var value))
+            Copies = Math.Clamp(value, 1, 20);
+    }
+
+    private async Task ConfirmAsync()
+    {
+        if (Ticket is null)
+            return;
+
+        _printing = true;
+        _error = null;
+
+        var ok = await PrintService.PrintTicketAsync(Ticket, PrinterName, Copies);
+
+        _printing = false;
+
+        if (ok)
+        {
+            await CloseAsync();
+            await OnPrinted.InvokeAsync();
+        }
+        else
+        {
+            _error = "Échec de l'impression — vérifiez l'imprimante.";
+        }
+    }
+
+    private async Task CancelAsync() => await CloseAsync();
+
+    private async Task CloseAsync()
+    {
+        IsOpen = false;
+        await IsOpenChanged.InvokeAsync(false);
+    }
+}

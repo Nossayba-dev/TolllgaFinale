@@ -4,6 +4,49 @@
         <name>TolllgaFinale</name>
     </assembly>
     <members>
+        <member name="T:TolllgaFinale.Services.PrintAutomationAccessibilityService">
+             <summary>
+             Service d'accessibilité qui surveille l'apparition de l'écran système d'impression
+             (com.android.printspooler) et clique automatiquement sur son bouton "Imprimer", pour que
+             l'utilisateur n'ait pas à confirmer manuellement à chaque impression.
+            
+             Doit être activé une seule fois par l'utilisateur dans Paramètres Android > Accessibilité >
+             TolllgaFinale (aucune API ne permet à une application d'activer ce type de service elle-même).
+             </summary>
+        </member>
+        <member name="M:TolllgaFinale.Services.PrintAutomationAccessibilityService.SetCopiesAsync(Android.Views.Accessibility.AccessibilityNodeInfo,System.Int32)">
+            <summary>
+            Règle le nombre de copies. L'écran de cet appareil utilise "android.support.v7" (bibliothèque
+            de support historique, pas AndroidX) : c'est une version d'Android ancienne (~5-7), dont
+            l'implémentation de PrintActivity diffère du code source "master" actuel d'AOSP — les id
+            "more_options_button"/"copies_edittext" qu'on y a trouvés ne s'appliquent donc pas forcément
+            ici (déjà confirmé absents sur cet écran). On combine trois pistes, de la plus fiable à la plus
+            empirique : id de vue (au cas où), puis clic sur la ligne résumé "Copies" (seul clic ayant
+            concrètement changé l'écran lors des tests), puis clic sur "Expand handle" en dernier recours.
+            Ne s'exécute que si copies > 1 est réellement demandé.
+            </summary>
+        </member>
+        <member name="M:TolllgaFinale.Services.PrintAutomationAccessibilityService.DumpTree(Android.Views.Accessibility.AccessibilityNodeInfo,System.Int32)">
+            <summary>
+            Journalise l'arborescence complète de l'écran (classe, texte, description, éditable/cliquable)
+            pour permettre de diagnostiquer précisément sa structure réelle si la recherche automatique échoue.
+            </summary>
+        </member>
+        <member name="M:TolllgaFinale.Services.PrintAutomationAccessibilityService.FindClickableByText(Android.Views.Accessibility.AccessibilityNodeInfo,System.String[])">
+            <summary>
+            Cherche récursivement un nœud dont le texte ou la description contient l'un des mots-clés,
+            puis remonte à son premier ancêtre cliquable (le libellé/icône visible n'est souvent pas
+            lui-même la cible cliquable, mais son conteneur parent l'est).
+            </summary>
+        </member>
+        <member name="T:TolllgaFinale.Services.PrintAutomationState">
+            <summary>
+            État partagé en mémoire entre AndroidStandardPrintService (qui lance l'impression) et
+            PrintAutomationAccessibilityService (qui automatise l'écran système résultant). Les deux
+            s'exécutent dans le même processus applicatif, donc un simple champ statique suffit — Android
+            ne fournit aucune API permettant de transmettre le nombre de copies directement à PrintManager.
+            </summary>
+        </member>
         <member name="T:TolllgaFinale.Services.AuthService">
             <summary>
             Manages users, sessions, and role checks.
@@ -31,7 +74,7 @@
             Creates/updates the truck entry automatically.
             </summary>
         </member>
-        <member name="M:TolllgaFinale.Services.IPrintService.PrintTicketAsync(TolllgaFinale.Models.TicketData,System.String)">
+        <member name="M:TolllgaFinale.Services.IPrintService.PrintTicketAsync(TolllgaFinale.Models.TicketData,System.String,System.Int32)">
             <summary>Imprime le ticket. printerName = null → imprimante par défaut.</summary>
         </member>
         <member name="M:TolllgaFinale.Services.IPrintService.GetInstalledPrinters">

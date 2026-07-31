@@ -7,6 +7,11 @@
 
 <div class="page-title">🧾 Tickets</div>
 
+<PrintOptionsDialog @bind-IsOpen="_printDialogOpen"
+                     Ticket="_printTicket"
+                     PrinterName="@PrinterSettings.GetDefaultPrinter()"
+                     OnPrinted="OnPrinted" />
+
 <div class="card-white">
     <div class="form-row" style="margin-bottom:1rem;gap:1rem;display:flex;flex-wrap:wrap">
         <input type="text" placeholder="Filtrer par matricule..." @bind="_filter" @bind:event="oninput" style="max-width:260px" />
@@ -85,16 +90,33 @@
         _loading = false;
     }
 
+    private TicketData? _printTicket;
+    private bool _printDialogOpen;
+
     private async Task ReprintAsync(WeightRecord r)
     {
         _error = null;
         _successMsg = null;
         var ticket = TicketData.FromRecord(r);
-        var printerName = PrinterSettings.GetDefaultPrinter();
-        var ok = await PrintService.PrintTicketAsync(ticket, printerName);
 
-        if (ok) { _successMsg = "Ticket réimprimé."; AutoHide(); }
-        else { _error = "Échec de l'impression — vérifiez l'imprimante."; }
+        if (OperatingSystem.IsAndroid())
+        {
+            _printTicket = ticket;
+            _printDialogOpen = true;
+        }
+        else
+        {
+            var printerName = PrinterSettings.GetDefaultPrinter();
+            var ok = await PrintService.PrintTicketAsync(ticket, printerName);
+            if (ok) { _successMsg = "Ticket réimprimé."; AutoHide(); }
+            else { _error = "Échec de l'impression — vérifiez l'imprimante."; }
+        }
+    }
+
+    private void OnPrinted()
+    {
+        _successMsg = "Ticket réimprimé.";
+        AutoHide();
     }
 
     private void AutoHide()

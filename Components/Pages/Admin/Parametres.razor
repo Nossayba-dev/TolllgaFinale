@@ -7,6 +7,11 @@
 
 <div class="page-title">⚙ Paramètres</div>
 
+<PrintOptionsDialog @bind-IsOpen="_printDialogOpen"
+                     Ticket="_printTicket"
+                     PrinterName="@(string.IsNullOrWhiteSpace(_selectedPrinter) ? null : _selectedPrinter)"
+                     OnPrinted="OnTestPrinted" />
+
 @* ══ IMPRESSION — visible pour admin ET opérateur ══ *@
 <div class="card-white">
     <div class="param-section-title">🖨 Impression</div>
@@ -175,6 +180,9 @@
         AutoHidePrinterMsg();
     }
 
+    private TolllgaFinale.Models.TicketData? _printTicket;
+    private bool _printDialogOpen;
+
     private async Task TestPrintAsync()
     {
         _printerError = null;
@@ -190,9 +198,24 @@
             WeighingDateTare = DateTime.Now,
             OperatorGross = Auth.CurrentUserLabel
         };
-        var ok = await PrintService.PrintTicketAsync(ticket, string.IsNullOrWhiteSpace(_selectedPrinter) ? null : _selectedPrinter);
-        if (ok) { _printerMsg = "Test envoyé à l'imprimante."; AutoHidePrinterMsg(); }
-        else { _printerError = "Échec de l'impression test."; }
+
+        if (OperatingSystem.IsAndroid())
+        {
+            _printTicket = ticket;
+            _printDialogOpen = true;
+        }
+        else
+        {
+            var ok = await PrintService.PrintTicketAsync(ticket, string.IsNullOrWhiteSpace(_selectedPrinter) ? null : _selectedPrinter);
+            if (ok) { _printerMsg = "Test envoyé à l'imprimante."; AutoHidePrinterMsg(); }
+            else { _printerError = "Échec de l'impression test."; }
+        }
+    }
+
+    private void OnTestPrinted()
+    {
+        _printerMsg = "Test envoyé à l'imprimante.";
+        AutoHidePrinterMsg();
     }
 
     private void AutoHidePrinterMsg()

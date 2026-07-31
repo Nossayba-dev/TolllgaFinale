@@ -21,10 +21,15 @@ public class AndroidStandardPrintService : IPrintService
         return new List<string>();
     }
 
-    public Task<bool> PrintTicketAsync(TicketData ticket, string? printerName = null)
+    public Task<bool> PrintTicketAsync(TicketData ticket, string? printerName = null, int copies = 1)
     {
         var context = Platform.CurrentActivity ?? Platform.AppContext;
         var printManager = (PrintManager)context.GetSystemService(Context.PrintService)!;
+
+        // Android ne permet pas de fixer le nombre de copies via PrintManager.Print : ce champ
+        // n'existe que sur l'écran système d'impression. On le transmet à
+        // PrintAutomationAccessibilityService, qui le renseigne automatiquement sur cet écran.
+        PrintAutomationState.PendingCopies = Math.Max(1, copies);
 
         var jobName = $"Ticket_{ticket.Matricule}_{ticket.RecordId}";
         var adapter = new TicketPrintDocumentAdapter(ticket);

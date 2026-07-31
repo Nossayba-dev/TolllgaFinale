@@ -48,6 +48,8 @@
         <None Remove="obj\Components\**" />
     </ItemGroup>
 
+    
+
     <ItemGroup>
         <!-- Core MAUI packages -->
         <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />

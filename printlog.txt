@@ -1,0 +1,161 @@
+--------- beginning of main
+07-27 14:20:55.529 32074 32074 D TolllgaFinalePrintAuto: Écran d'impression système détecté, recherche du bouton Imprimer...
+07-27 14:20:55.663 32074 32074 D TolllgaFinalePrintAuto: Écran d'impression système détecté, recherche du bouton Imprimer...
+07-27 14:20:56.555 32074 32074 E TolllgaFinalePrintAuto: Champ 'Copies' introuvable (aucun nœud éditable). Arborescence de l'écran :
+07-27 14:20:56.557 32074 32074 D TolllgaFinalePrintAuto: android.widget.FrameLayout text='' desc='' editable=False clickable=False
+07-27 14:20:56.560 32074 32074 D TolllgaFinalePrintAuto:   android.view.ViewGroup text='' desc='' editable=False clickable=False
+07-27 14:20:56.563 32074 32074 D TolllgaFinalePrintAuto:     android.widget.FrameLayout text='' desc='Expand handle' editable=False clickable=True
+07-27 14:20:56.566 32074 32074 D TolllgaFinalePrintAuto:     android.widget.Spinner text='' desc='' editable=False clickable=True
+07-27 14:20:56.569 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='USB: HP LaserJet CP 1025nw' desc='' editable=False clickable=False
+07-27 14:20:56.572 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='USB' desc='' editable=False clickable=False
+07-27 14:20:56.575 32074 32074 D TolllgaFinalePrintAuto:     android.widget.LinearLayout text='' desc='Summary, copies 1, paper size Letter' editable=False clickable=True
+07-27 14:20:56.578 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='Copies:' desc='' editable=False clickable=False
+07-27 14:20:56.581 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='1' desc='' editable=False clickable=False
+07-27 14:20:56.584 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='Paper size:' desc='' editable=False clickable=False
+07-27 14:20:56.587 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='Letter' desc='' editable=False clickable=False
+07-27 14:20:56.590 32074 32074 D TolllgaFinalePrintAuto:     android.support.v7.widget.RecyclerView text='' desc='' editable=False clickable=False
+07-27 14:20:56.622 32074 32074 D TolllgaFinalePrintAuto:       android.widget.CompoundButton text='' desc='Page 1 of 1' editable=False clickable=True
+07-27 14:20:56.626 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='1/1' desc='' editable=False clickable=False
+07-27 14:20:56.628 32074 32074 D TolllgaFinalePrintAuto:     android.widget.ImageButton text='' desc='Print' editable=False clickable=True
+07-27 14:20:56.645 32074 32074 D TolllgaFinalePrintAuto: Bouton Imprimer cliqué automatiquement.
+07-27 14:20:58.498 32074 32074 E TolllgaFinalePrintAuto: Champ 'Copies' introuvable (aucun nœud éditable). Arborescence de l'écran :
+07-27 14:20:58.499 32074 32074 D TolllgaFinalePrintAuto: android.widget.FrameLayout text='' desc='' editable=False clickable=False
+07-27 14:20:58.501 32074 32074 D TolllgaFinalePrintAuto:   android.widget.ScrollView text='' desc='' editable=False clickable=False
+07-27 14:20:58.503 32074 32074 D TolllgaFinalePrintAuto:     android.webkit.WebView text='' desc='' editable=False clickable=False
+07-27 14:20:58.506 32074 32074 D TolllgaFinalePrintAuto:       android.webkit.WebView text='' desc='' editable=False clickable=False
+07-27 14:20:58.511 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='TOLLLGA' desc='' editable=False clickable=False
+07-27 14:20:58.513 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='A' desc='' editable=False clickable=False
+07-27 14:20:58.516 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='admin' desc='' editable=False clickable=False
+07-27 14:20:58.518 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='Administrateur' desc='' editable=False clickable=False
+07-27 14:20:58.520 32074 32074 D TolllgaFinalePrintAuto:         android.view.View text='' desc='▦ Dashboard' editable=False clickable=True
+07-27 14:20:58.524 32074 32074 D TolllgaFinalePrintAuto:           android.widget.TextView text='▦' desc='' editable=False clickable=False
+07-27 14:20:58.527 32074 32074 D TolllgaFinalePrintAuto:           android.widget.TextView text='Dashboard' desc='' editable=False clickable=False
+07-27 14:20:58.530 32074 32074 D TolllgaFinalePrintAuto:         android.view.View text='' desc='🚛 Camions' editable=False clickable=True
+07-27 14:20:58.532 32074 32074 D TolllgaFinalePrintAuto:           android.widget.TextView text='🚛' desc='' editable=False clickable=False
+07-27 14:20:58.535 32074 32074 D TolllgaFinalePrintAuto:           android.widget.TextView text='Camions' desc='' editable=False clickable=False
+07-27 14:20:58.537 32074 32074 D TolllgaFinalePrintAuto:         android.view.View text='' desc='📋 Historique' editable=False clickable=True
+07-27 14:20:58.540 32074 32074 D TolllgaFinalePrintAuto:           android.widget.TextView text='📋' desc='' editable=False clickable=False
+07-27 14:20:58.620 32074 32074 D TolllgaFinalePrintAuto:           android.widget.TextView text='Historique' desc='' editable=False clickable=False
+07-27 14:20:58.622 32074 32074 D TolllgaFinalePrintAuto:         android.view.View text='' desc='👤 Utilisateurs' editable=False clickable=True
+07-27 14:20:58.625 32074 32074 D TolllgaFinalePrintAuto:           android.widget.TextView text='👤' desc='' editable=False clickable=False
+07-27 14:20:58.627 32074 32074 D TolllgaFinalePrintAuto:           android.widget.TextView text='Utilisateurs' desc='' editable=False clickable=False
+07-27 14:20:58.631 32074 32074 D TolllgaFinalePrintAuto:         android.view.View text='' desc='⚖ Nouvelle Pesée' editable=False clickable=True
+07-27 14:20:58.633 32074 32074 D TolllgaFinalePrintAuto:           android.widget.TextView text='⚖' desc='' editable=False clickable=False
+07-27 14:20:58.635 32074 32074 D TolllgaFinalePrintAuto:           android.widget.TextView text='Nouvelle Pesée' desc='' editable=False clickable=False
+07-27 14:20:58.638 32074 32074 D TolllgaFinalePrintAuto:         android.view.View text='' desc='🧾 Tickets' editable=False clickable=True
+07-27 14:20:58.640 32074 32074 D TolllgaFinalePrintAuto:           android.widget.TextView text='🧾' desc='' editable=False clickable=False
+07-27 14:20:58.643 32074 32074 D TolllgaFinalePrintAuto:           android.widget.TextView text='Tickets' desc='' editable=False clickable=False
+07-27 14:20:58.645 32074 32074 D TolllgaFinalePrintAuto:         android.view.View text='' desc='⚙ Paramètres' editable=False clickable=True
+07-27 14:20:58.647 32074 32074 D TolllgaFinalePrintAuto:           android.widget.TextView text='⚙' desc='' editable=False clickable=False
+07-27 14:20:58.649 32074 32074 D TolllgaFinalePrintAuto:           android.widget.TextView text='Paramètres' desc='' editable=False clickable=False
+07-27 14:20:58.652 32074 32074 D TolllgaFinalePrintAuto:         android.widget.Button text='⬅ Déconnexion' desc='' editable=False clickable=True
+07-27 14:20:58.654 32074 32074 D TolllgaFinalePrintAuto:         android.widget.Button text='✕ Quitter' desc='' editable=False clickable=True
+07-27 14:20:58.657 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='⚙ Paramètres' desc='' editable=False clickable=False
+07-27 14:20:58.660 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='🖨 Impression' desc='' editable=False clickable=False
+07-27 14:20:58.663 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='Imprimante par défaut' desc='' editable=False clickable=False
+07-27 14:20:58.665 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='Utilisée pour "Enregistrer et Imprimer" et les réimpressions depuis Tickets.' desc='' editable=False clickable=False
+07-27 14:20:58.667 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='Le sélecteur d'imprimante s'affiche automatiquement à chaque impression sur cet appareil.' desc='' editable=False clickable=False
+07-27 14:20:58.670 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='Test d'impression' desc='' editable=False clickable=False
+07-27 14:20:58.673 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='Imprime un ticket de test sur l'imprimante sélectionnée.' desc='' editable=False clickable=False
+07-27 14:20:58.675 32074 32074 D TolllgaFinalePrintAuto:         android.widget.Button text='Imprimer un test' desc='' editable=False clickable=True
+07-27 14:20:58.678 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='✅ ' desc='' editable=False clickable=False
+07-27 14:20:58.682 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='Test envoyé à l'imprimante.' desc='' editable=False clickable=False
+07-27 14:20:58.686 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='Base de données' desc='' editable=False clickable=False
+07-27 14:20:58.690 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='Chemin de la base' desc='' editable=False clickable=False
+07-27 14:20:58.694 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='/data/user/0/com.companyname.TolllgaFinale/files/weightsync.db3' desc='' editable=False clickable=False
+07-27 14:20:58.697 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='Effacer tout l'historique' desc='' editable=False clickable=False
+07-27 14:20:58.702 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='Supprime toutes les pesées. Les camions sont conservés.' desc='' editable=False clickable=False
+07-27 14:20:58.706 32074 32074 D TolllgaFinalePrintAuto:         android.widget.Button text='🗑 Effacer' desc='' editable=False clickable=True
+07-27 14:20:58.711 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='Réinitialiser la base complète' desc='' editable=False clickable=False
+07-27 14:20:58.714 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='Supprime camions ET pesées. Action irréversible.' desc='' editable=False clickable=False
+07-27 14:20:58.719 32074 32074 D TolllgaFinalePrintAuto:         android.widget.Button text='⚠ Réinitialiser' desc='' editable=False clickable=True
+07-27 14:20:58.722 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='Intervalle de lecture (ms)' desc='' editable=False clickable=False
+07-27 14:20:58.728 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='Fréquence de polling de la balance' desc='' editable=False clickable=False
+07-27 14:20:58.732 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='Valeur actuelle : ' desc='' editable=False clickable=False
+07-27 14:20:58.736 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='300' desc='' editable=False clickable=False
+07-27 14:20:58.740 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text=' ms' desc='' editable=False clickable=False
+07-27 14:20:58.742 32074 32074 D TolllgaFinalePrintAuto:         android.widget.SeekBar text='' desc='' editable=False clickable=True
+07-27 14:20:58.748 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='300' desc='' editable=False clickable=False
+07-27 14:20:58.751 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text=' ms' desc='' editable=False clickable=False
+07-27 14:20:58.754 32074 32074 D TolllgaFinalePrintAuto:     android.view.View text='' desc='' editable=False clickable=False
+07-27 14:20:58.759 32074 32074 D TolllgaFinalePrintAuto: Bouton Imprimer cliqué automatiquement.
+07-27 14:27:55.855 32074 32074 D TolllgaFinalePrintAuto: Écran d'impression système détecté, recherche du bouton Imprimer...
+07-27 14:27:56.939 32074 32074 E TolllgaFinalePrintAuto: Champ 'Copies' introuvable (aucun nœud éditable). Arborescence de l'écran :
+07-27 14:27:56.942 32074 32074 D TolllgaFinalePrintAuto: android.widget.FrameLayout text='' desc='' editable=False clickable=False
+07-27 14:27:56.944 32074 32074 D TolllgaFinalePrintAuto:   android.view.ViewGroup text='' desc='' editable=False clickable=False
+07-27 14:27:56.950 32074 32074 D TolllgaFinalePrintAuto:     android.widget.FrameLayout text='' desc='Expand handle' editable=False clickable=True
+07-27 14:27:56.952 32074 32074 D TolllgaFinalePrintAuto:     android.widget.Spinner text='' desc='' editable=False clickable=True
+07-27 14:27:56.956 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='USB: HP LaserJet CP 1025nw' desc='' editable=False clickable=False
+07-27 14:27:56.959 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='USB' desc='' editable=False clickable=False
+07-27 14:27:56.963 32074 32074 D TolllgaFinalePrintAuto:     android.widget.LinearLayout text='' desc='Summary, copies 1, paper size Letter' editable=False clickable=True
+07-27 14:27:56.966 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='Copies:' desc='' editable=False clickable=False
+07-27 14:27:56.969 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='1' desc='' editable=False clickable=False
+07-27 14:27:56.972 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='Paper size:' desc='' editable=False clickable=False
+07-27 14:27:56.975 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='Letter' desc='' editable=False clickable=False
+07-27 14:27:56.979 32074 32074 D TolllgaFinalePrintAuto:     android.support.v7.widget.RecyclerView text='' desc='' editable=False clickable=False
+07-27 14:27:56.982 32074 32074 D TolllgaFinalePrintAuto:       android.widget.CompoundButton text='' desc='Page 1 of 5' editable=False clickable=True
+07-27 14:27:56.985 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='1/5' desc='' editable=False clickable=False
+07-27 14:27:56.988 32074 32074 D TolllgaFinalePrintAuto:       android.widget.CompoundButton text='' desc='Page 2 of 5' editable=False clickable=True
+07-27 14:27:56.991 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='2/5' desc='' editable=False clickable=False
+07-27 14:27:56.994 32074 32074 D TolllgaFinalePrintAuto:       android.widget.CompoundButton text='' desc='Page 3 of 5' editable=False clickable=True
+07-27 14:27:57.030 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='3/5' desc='' editable=False clickable=False
+07-27 14:27:57.034 32074 32074 D TolllgaFinalePrintAuto:       android.widget.CompoundButton text='' desc='Page 4 of 5' editable=False clickable=True
+07-27 14:27:57.037 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='4/5' desc='' editable=False clickable=False
+07-27 14:27:57.040 32074 32074 D TolllgaFinalePrintAuto:       android.widget.CompoundButton text='' desc='Page 5 of 5' editable=False clickable=True
+07-27 14:27:57.043 32074 32074 D TolllgaFinalePrintAuto:         android.widget.TextView text='5/5' desc='' editable=False clickable=False
+07-27 14:27:57.047 32074 32074 D TolllgaFinalePrintAuto:     android.widget.ImageButton text='' desc='Print' editable=False clickable=True
+07-27 14:27:57.063 32074 32074 D TolllgaFinalePrintAuto: Bouton Imprimer cliqué automatiquement.
+07-27 14:28:02.605 32074 32074 D TolllgaFinalePrintAuto: Écran d'impression système détecté, recherche du bouton Imprimer...
+07-27 14:28:02.766 32074 32074 D TolllgaFinalePrintAuto: Écran d'impression système détecté, recherche du bouton Imprimer...
+07-27 14:28:03.123 32074 32074 E TolllgaFinalePrintAuto: Champ 'Copies' introuvable (aucun nœud éditable). Arborescence de l'écran :
+07-27 14:28:03.125 32074 32074 D TolllgaFinalePrintAuto: android.widget.FrameLayout text='' desc='' editable=False clickable=False
+07-27 14:28:03.128 32074 32074 D TolllgaFinalePrintAuto:   android.view.ViewGroup text='' desc='' editable=False clickable=False
+07-27 14:28:03.132 32074 32074 D TolllgaFinalePrintAuto:     android.widget.FrameLayout text='' desc='Expand handle' editable=False clickable=True
+07-27 14:28:03.135 32074 32074 D TolllgaFinalePrintAuto:     android.widget.Spinner text='' desc='' editable=False clickable=True
+07-27 14:28:03.139 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='USB: HP LaserJet CP 1025nw' desc='' editable=False clickable=False
+07-27 14:28:03.142 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='USB' desc='' editable=False clickable=False
+07-27 14:28:03.146 32074 32074 D TolllgaFinalePrintAuto:     android.widget.LinearLayout text='' desc='Summary, copies 1, paper size Letter' editable=False clickable=True
+07-27 14:28:03.149 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='Copies:' desc='' editable=False clickable=False
+07-27 14:28:03.152 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='1' desc='' editable=False clickable=False
+07-27 14:28:03.156 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='Paper size:' desc='' editable=False clickable=False
+07-27 14:28:03.159 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='Letter' desc='' editable=False clickable=False
+07-27 14:28:03.217 32074 32074 D TolllgaFinalePrintAuto:     android.support.v7.widget.RecyclerView text='' desc='' editable=False clickable=False
+07-27 14:28:03.220 32074 32074 D TolllgaFinalePrintAuto:     android.widget.ImageButton text='' desc='Print' editable=False clickable=True
+07-27 14:28:03.235 32074 32074 D TolllgaFinalePrintAuto: Bouton Imprimer cliqué automatiquement.
+07-27 14:28:05.327 32074 32074 E TolllgaFinalePrintAuto: Bouton Imprimer introuvable sur l'écran système d'impression après plusieurs tentatives.
+07-27 14:28:10.176 32074 32074 D TolllgaFinalePrintAuto: Écran d'impression système détecté, recherche du bouton Imprimer...
+07-27 14:28:10.407 32074 32074 D TolllgaFinalePrintAuto: Écran d'impression système détecté, recherche du bouton Imprimer...
+07-27 14:28:10.798 32074 32074 E TolllgaFinalePrintAuto: Champ 'Copies' introuvable (aucun nœud éditable). Arborescence de l'écran :
+07-27 14:28:10.802 32074 32074 D TolllgaFinalePrintAuto: android.widget.FrameLayout text='' desc='' editable=False clickable=False
+07-27 14:28:10.808 32074 32074 D TolllgaFinalePrintAuto:   android.view.ViewGroup text='' desc='' editable=False clickable=False
+07-27 14:28:10.824 32074 32074 D TolllgaFinalePrintAuto:     android.widget.FrameLayout text='' desc='Expand handle' editable=False clickable=True
+07-27 14:28:10.827 32074 32074 D TolllgaFinalePrintAuto:     android.widget.Spinner text='' desc='' editable=False clickable=True
+07-27 14:28:10.830 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='USB: HP LaserJet CP 1025nw' desc='' editable=False clickable=False
+07-27 14:28:10.835 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='USB' desc='' editable=False clickable=False
+07-27 14:28:10.838 32074 32074 D TolllgaFinalePrintAuto:     android.widget.LinearLayout text='' desc='Summary, copies 1, paper size Letter' editable=False clickable=True
+07-27 14:28:10.840 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='Copies:' desc='' editable=False clickable=False
+07-27 14:28:10.843 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='1' desc='' editable=False clickable=False
+07-27 14:28:10.846 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='Paper size:' desc='' editable=False clickable=False
+07-27 14:28:10.848 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='Letter' desc='' editable=False clickable=False
+07-27 14:28:10.849 32074 32074 D TolllgaFinalePrintAuto:     android.support.v7.widget.RecyclerView text='' desc='' editable=False clickable=False
+07-27 14:28:10.851 32074 32074 D TolllgaFinalePrintAuto:     android.widget.ImageButton text='' desc='Print' editable=False clickable=True
+07-27 14:28:10.872 32074 32074 D TolllgaFinalePrintAuto: Bouton Imprimer cliqué automatiquement.
+07-27 14:28:12.686 32074 32074 E TolllgaFinalePrintAuto: Bouton Imprimer introuvable sur l'écran système d'impression après plusieurs tentatives.
+07-27 14:28:26.860 32074 32074 D TolllgaFinalePrintAuto: Écran d'impression système détecté, recherche du bouton Imprimer...
+07-27 14:28:26.981 32074 32074 D TolllgaFinalePrintAuto: Écran d'impression système détecté, recherche du bouton Imprimer...
+07-27 14:28:27.434 32074 32074 E TolllgaFinalePrintAuto: Champ 'Copies' introuvable (aucun nœud éditable). Arborescence de l'écran :
+07-27 14:28:27.465 32074 32074 D TolllgaFinalePrintAuto: android.widget.FrameLayout text='' desc='' editable=False clickable=False
+07-27 14:28:27.468 32074 32074 D TolllgaFinalePrintAuto:   android.view.ViewGroup text='' desc='' editable=False clickable=False
+07-27 14:28:27.472 32074 32074 D TolllgaFinalePrintAuto:     android.widget.FrameLayout text='' desc='Expand handle' editable=False clickable=True
+07-27 14:28:27.475 32074 32074 D TolllgaFinalePrintAuto:     android.widget.Spinner text='' desc='' editable=False clickable=True
+07-27 14:28:27.478 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='USB: HP LaserJet CP 1025nw' desc='' editable=False clickable=False
+07-27 14:28:27.481 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='USB' desc='' editable=False clickable=False
+07-27 14:28:27.484 32074 32074 D TolllgaFinalePrintAuto:     android.widget.LinearLayout text='' desc='Summary, copies 1, paper size Letter' editable=False clickable=True
+07-27 14:28:27.487 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='Copies:' desc='' editable=False clickable=False
+07-27 14:28:27.490 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='1' desc='' editable=False clickable=False
+07-27 14:28:27.493 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='Paper size:' desc='' editable=False clickable=False
+07-27 14:28:27.497 32074 32074 D TolllgaFinalePrintAuto:       android.widget.TextView text='Letter' desc='' editable=False clickable=False
+07-27 14:28:27.499 32074 32074 D TolllgaFinalePrintAuto:     android.support.v7.widget.RecyclerView text='' desc='' editable=False clickable=False
+07-27 14:28:27.502 32074 32074 D TolllgaFinalePrintAuto:     android.widget.ImageButton text='' desc='Print' editable=False clickable=True
+07-27 14:28:27.533 32074 32074 D TolllgaFinalePrintAuto: Bouton Imprimer cliqué automatiquement.
+07-27 14:28:29.395 32074 32074 E TolllgaFinalePrintAuto: Bouton Imprimer introuvable sur l'écran système d'impression après plusieurs tentatives.
