@@ -56,13 +56,13 @@
                 <span class="nav-icon">⚙</span> Paramètres
             </a>
 
-            
-            
+
+
         </div>
 
         <div class="sidebar-footer">
             <button class="btn-logout" @onclick="Logout">⬅ Déconnexion</button>
-            <button class="btn-quit"   @onclick="Quit">✕ Quitter</button>
+            <button class="btn-quit" @onclick="Quit">✕ Quitter</button>
         </div>
     </nav>
 
@@ -111,118 +111,296 @@
 }
 
 <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
 
     .app-shell {
-        display: flex; height: 100vh;
+        display: flex;
+        height: 100vh;
         font-family: 'Segoe UI', sans-serif;
         background: #f0f2f0;
     }
 
     /* ── Sidebar ── */
     .sidebar {
-        width: 240px; min-width: 240px;
+        width: 240px;
+        min-width: 240px;
         background: #1e3d1a;
-        display: flex; flex-direction: column;
+        display: flex;
+        flex-direction: column;
     }
 
     .sidebar-brand {
-        color: #fff; font-size: 1.5rem; font-weight: 900;
-        letter-spacing: 3px; padding: 1.4rem 1.5rem 1rem;
+        color: #fff;
+        font-size: 1.5rem;
+        font-weight: 900;
+        letter-spacing: 3px;
+        padding: 1.4rem 1.5rem 1rem;
         border-bottom: 1px solid rgba(255,255,255,.1);
     }
 
     /* ── User pill ── */
     .sidebar-user {
-        display: flex; align-items: center; gap: .7rem;
+        display: flex;
+        align-items: center;
+        gap: .7rem;
         padding: .9rem 1.2rem;
         border-bottom: 1px solid rgba(255,255,255,.08);
     }
+
     .user-avatar {
-        width: 2rem; height: 2rem; border-radius: 50%;
-        background: #8bc34a; color: #1e3d1a;
-        display: flex; align-items: center; justify-content: center;
-        font-weight: 800; font-size: .9rem; flex-shrink: 0;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 50%;
+        background: #8bc34a;
+        color: #1e3d1a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: .9rem;
+        flex-shrink: 0;
     }
-    .user-name { color: #fff; font-size: .85rem; font-weight: 600; }
-    .user-role { color: rgba(255,255,255,.55); font-size: .72rem; }
+
+    .user-name {
+        color: #fff;
+        font-size: .85rem;
+        font-weight: 600;
+    }
+
+    .user-role {
+        color: rgba(255,255,255,.55);
+        font-size: .72rem;
+    }
 
     /* ── Nav ── */
     .nav-links {
-        flex: 1; display: flex; flex-direction: column;
-        padding: .8rem 0; gap: .05rem;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: .8rem 0;
+        gap: .05rem;
     }
+
     .nav-item {
-        display: flex; align-items: center; gap: .75rem;
+        display: flex;
+        align-items: center;
+        gap: .75rem;
         padding: .72rem 1.5rem;
-        color: rgba(255,255,255,.7); text-decoration: none;
-        font-size: .92rem; font-weight: 500;
+        color: rgba(255,255,255,.7);
+        text-decoration: none;
+        font-size: .92rem;
+        font-weight: 500;
         border-left: 3px solid transparent;
         transition: background .15s, color .15s, border-color .15s;
     }
-    .nav-item:hover  { background: rgba(255,255,255,.08); color: #fff; }
-    .nav-item.active { background: rgba(255,255,255,.13); color: #fff; border-left-color: #8bc34a; }
-    .nav-icon { font-size: 1rem; width: 1.3rem; text-align: center; }
-    .nav-divider { height: 1px; background: rgba(255,255,255,.08); margin: .4rem 1rem; }
+
+        .nav-item:hover {
+            background: rgba(255,255,255,.08);
+            color: #fff;
+        }
+
+        .nav-item.active {
+            background: rgba(255,255,255,.13);
+            color: #fff;
+            border-left-color: #8bc34a;
+        }
+
+    .nav-icon {
+        font-size: 1rem;
+        width: 1.3rem;
+        text-align: center;
+    }
+
+    .nav-divider {
+        height: 1px;
+        background: rgba(255,255,255,.08);
+        margin: .4rem 1rem;
+    }
 
     /* ── Footer ── */
     .sidebar-footer {
         padding: .8rem 1rem 1.2rem;
-        display: flex; flex-direction: column; gap: .45rem;
+        display: flex;
+        flex-direction: column;
+        gap: .45rem;
     }
+
     .btn-logout {
-        background: rgba(255,255,255,.1); color: #fff;
-        border: 1px solid rgba(255,255,255,.2); border-radius: 6px;
-        padding: .5rem; font-size: .85rem; cursor: pointer; width: 100%;
+        background: rgba(255,255,255,.1);
+        color: #fff;
+        border: 1px solid rgba(255,255,255,.2);
+        border-radius: 6px;
+        padding: .5rem;
+        font-size: .85rem;
+        cursor: pointer;
+        width: 100%;
         transition: background .2s;
     }
-    .btn-logout:hover { background: rgba(255,255,255,.18); }
+
+        .btn-logout:hover {
+            background: rgba(255,255,255,.18);
+        }
+
     .btn-quit {
-        background: #c0392b; color: #fff;
-        border: none; border-radius: 6px;
-        padding: .5rem; font-size: .85rem; cursor: pointer; width: 100%;
+        background: #c0392b;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: .5rem;
+        font-size: .85rem;
+        cursor: pointer;
+        width: 100%;
         transition: background .2s;
     }
-    .btn-quit:hover { background: #96281b; }
+
+        .btn-quit:hover {
+            background: #96281b;
+        }
 
     /* ── Main ── */
-    .main-content { flex: 1; overflow-y: auto; padding: 2rem; }
+    .main-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 2rem;
+    }
 
     /* ── Shared helpers used by child pages ── */
     .page-title {
-        font-size: 1.5rem; font-weight: 700; color: #1e3d1a;
-        margin-bottom: 1.5rem; display: flex; align-items: center; gap: .5rem;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1e3d1a;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: .5rem;
     }
+
     .card-white {
-        background: #fff; border-radius: 10px;
+        background: #fff;
+        border-radius: 10px;
         box-shadow: 0 2px 10px rgba(0,0,0,.07);
-        padding: 1.5rem; margin-bottom: 1.2rem;
+        padding: 1.5rem;
+        margin-bottom: 1.2rem;
     }
-    .tbl { width: 100%; border-collapse: collapse; font-size: .9rem; }
-    .tbl th {
-        text-align: left; color: #555; font-weight: 600;
-        padding: .6rem .8rem; border-bottom: 2px solid #e8e8e8;
-        font-size: .82rem; text-transform: uppercase; letter-spacing: .04em;
+
+    .tbl {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: .9rem;
     }
-    .tbl td { padding: .7rem .8rem; border-bottom: 1px solid #f0f0f0; color: #333; }
-    .tbl tr:last-child td { border-bottom: none; }
-    .tbl tr:hover td { background: #f8fdf6; }
-    .tbl .bold  { font-weight: 700; }
-    .tbl .green { color: #2d5a27; font-weight: 700; }
 
-    .badge-green { background: #e8f5e9; color: #2e7d32; border-radius: 20px; padding: .15rem .6rem; font-size: .75rem; font-weight: 600; }
-    .badge-gray  { background: #f0f0f0; color: #777;    border-radius: 20px; padding: .15rem .6rem; font-size: .75rem; font-weight: 600; }
+        .tbl th {
+            text-align: left;
+            color: #555;
+            font-weight: 600;
+            padding: .6rem .8rem;
+            border-bottom: 2px solid #e8e8e8;
+            font-size: .82rem;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
 
-    .btn-green { background: #2d5a27; color: #fff; border: none; border-radius: 6px; padding: .45rem .9rem; font-size: .85rem; cursor: pointer; font-weight: 600; }
-    .btn-green:hover { background: #1e3d1a; }
-    .btn-red   { background: #c0392b; color: #fff; border: none; border-radius: 6px; padding: .45rem .9rem; font-size: .85rem; cursor: pointer; font-weight: 600; }
-    .btn-red:hover   { background: #96281b; }
-    .btn-gray  { background: #888;    color: #fff; border: none; border-radius: 6px; padding: .45rem .9rem; font-size: .85rem; cursor: pointer; font-weight: 600; }
-    .btn-gray:hover  { background: #666; }
+        .tbl td {
+            padding: .7rem .8rem;
+            border-bottom: 1px solid #f0f0f0;
+            color: #333;
+        }
+
+        .tbl tr:last-child td {
+            border-bottom: none;
+        }
+
+        .tbl tr:hover td {
+            background: #f8fdf6;
+        }
+
+        .tbl .bold {
+            font-weight: 700;
+        }
+
+        .tbl .green {
+            color: #2d5a27;
+            font-weight: 700;
+        }
+
+    .badge-green {
+        background: #e8f5e9;
+        color: #2e7d32;
+        border-radius: 20px;
+        padding: .15rem .6rem;
+        font-size: .75rem;
+        font-weight: 600;
+    }
+
+    .badge-gray {
+        background: #f0f0f0;
+        color: #777;
+        border-radius: 20px;
+        padding: .15rem .6rem;
+        font-size: .75rem;
+        font-weight: 600;
+    }
+
+    .btn-green {
+        background: #2d5a27;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: .45rem .9rem;
+        font-size: .85rem;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+        .btn-green:hover {
+            background: #1e3d1a;
+        }
+
+    .btn-red {
+        background: #c0392b;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: .45rem .9rem;
+        font-size: .85rem;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+        .btn-red:hover {
+            background: #96281b;
+        }
+
+    .btn-gray {
+        background: #888;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: .45rem .9rem;
+        font-size: .85rem;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+        .btn-gray:hover {
+            background: #666;
+        }
 
     input[type=text], input[type=number], input[type=password], input[type=date], select {
-        border: 1px solid #ccc; border-radius: 6px;
-        padding: .45rem .7rem; font-size: .9rem; outline: none; width: 100%; font-family: inherit;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        padding: .45rem .7rem;
+        font-size: .9rem;
+        outline: none;
+        width: 100%;
+        font-family: inherit;
     }
-    input:focus, select:focus { border-color: #2d5a27; }
+
+        input:focus, select:focus {
+            border-color: #2d5a27;
+        }
 </style>

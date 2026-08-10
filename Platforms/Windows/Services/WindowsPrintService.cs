@@ -20,7 +20,7 @@ public class WindowsPrintService : IPrintService
         return list;
     }
 
-    public Task<bool> PrintTicketAsync(TicketData ticket, string? printerName = null)
+    public Task<bool> PrintTicketAsync(TicketData ticket, string? printerName = null, int copies = 1)
     {
         var doc = new PrintDocument
         {
@@ -32,6 +32,8 @@ public class WindowsPrintService : IPrintService
 
         if (!doc.PrinterSettings.IsValid)
             return Task.FromResult(false);
+
+        doc.PrinterSettings.Copies = (short)Math.Max(1, copies);
 
         doc.PrintPage += (s, e) => DrawTicket(e, ticket);
 
